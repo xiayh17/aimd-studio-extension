@@ -2,6 +2,19 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.3.0] - 2025-12-25
+
+### Added
+- **Python Backend Integration**: Implemented binary sidecar pattern for Python backend support via JSON-RPC over stdio.
+- **Backend Bridge**: New `AimdBackend` class for seamless TypeScript-Python communication.
+- **Test Command**: Added `AIMD: Hello Backend` command for verifying Python integration.
+
+### Changed
+- **Preview Title**: Simplified from "AIMD Preview (Vue)" to "AIMD Preview".
+
+### Fixed
+- **Legacy Commands**: Removed unused `toggleExperimental` and `toggleVue` commands that caused errors.
+
 ## [0.2.1] - 2025-12-25
 
 ### Added

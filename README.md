@@ -7,6 +7,7 @@ AIMD Studio is a professional VS Code extension designed for editing and preview
 - **Interactive Timeline Preview**: Visualize your protocol as a sleek, card-based timeline.
 - **Scientific Minimalist Design**: High-fidelity UI inspired by professional lab design tools, offering high contrast and reduced visual clutter.
 - **Unified Rendering Engine**: Powered by Remark/Rehype and Vue.js for robust and extensible document parsing.
+- **Python Backend Integration**: Binary sidecar architecture for advanced features like AI assistance and data export.
 - **Real-time Synchronization**: The preview updates instantly as you edit your `.aimd` files.
 - **Smart Variable Highlighting**: Easily identify and interact with protocol variables.
 - **Theme Support**: Choose between Modern, Journal, Clinical, and Westlake themes with full dark mode support.
@@ -17,7 +18,6 @@ AIMD Studio is a professional VS Code extension designed for editing and preview
 1. Open any file with the `.aimd` extension.
 2. Click the **AIMD Preview** button in the status bar (bottom right).
 3. Alternatively, use the preview icon in the editor title bar or the context menu.
-4. Use the **Toggle Experimental Preview** command to switch between rendering engines.
 
 ## Extension Settings
 
@@ -31,15 +31,15 @@ This extension contributes the following settings:
 ## Requirements
 
 * VS Code version 1.74.0 or higher.
+* Python 3.8+ (for backend features, optional).
 
 ## Release Notes
 
-### 0.2.1
+### 0.3.0
 
-Theme and styling refinements:
-- **Westlake Theme**: A new "Swedish Minimalist" design language.
-- **Dark Mode**: Complete dark mode support across all components.
-- **Check Component Polish**: Improved visual feedback and theme adaptivity.
+Python backend integration:
+- **Binary Sidecar Pattern**: Python backend via JSON-RPC over stdio.
+- **Backend Bridge**: Seamless TypeScript-Python communication.
 
 ### 0.2.0
 

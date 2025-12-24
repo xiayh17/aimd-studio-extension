@@ -10,7 +10,7 @@ import { escapeHtml } from '../../shared/utils';
  */
 export class VuePreviewProvider {
     private static readonly viewType = 'aimd.preview.vue';
-    private static readonly previewTitle = 'AIMD Preview (Vue)';
+    private static readonly previewTitle = 'AIMD Preview';
 
     private static previewPanels = new Map<string, vscode.WebviewPanel>();
     private static updateTimeouts = new Map<string, NodeJS.Timeout>();

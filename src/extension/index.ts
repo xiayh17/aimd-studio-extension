@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { VuePreviewProvider } from './preview/provider';
+import { AimdBackend } from './backend/backend';
 
 let statusBarItem: vscode.StatusBarItem;
+let aimdBackend: AimdBackend | null = null;
 
 /**
  * 获取配置值
@@ -71,6 +73,12 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize Vue Preview Provider
     VuePreviewProvider.initialize(context);
 
+    // Initialize Python Backend (async, non-blocking)
+    aimdBackend = new AimdBackend(context.extensionPath);
+    aimdBackend.start().catch(err => {
+        console.error('Failed to start AIMD backend:', err);
+    });
+
     const initialConfig = getConfig();
 
     // 创建状态栏按钮
@@ -120,6 +128,25 @@ export async function activate(context: vscode.ExtensionContext) {
         VuePreviewProvider.createOrShow(uri, vscode.ViewColumn.Beside);
     });
 
+    // Register hello backend command (for testing Python integration)
+    const helloBackendCommand = vscode.commands.registerCommand('aimd.helloBackend', async () => {
+        if (!aimdBackend) {
+            vscode.window.showErrorMessage('AIMD Backend is not initialized');
+            return;
+        }
+
+        try {
+            aimdBackend.showOutput();
+            const result = await aimdBackend.hello('AIMD User');
+            vscode.window.showInformationMessage(
+                `🐍 ${result.message}\n⏰ ${result.timestamp}`
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Backend error: ${message}`);
+        }
+    });
+
     // 监听编辑器变化
     const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(editor => {
         updateStatusBar(editor);
@@ -140,6 +167,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // 添加到订阅
     context.subscriptions.push(previewCommand);
     context.subscriptions.push(previewToSideCommand);
+    context.subscriptions.push(helloBackendCommand);
     context.subscriptions.push(editorChangeDisposable);
     context.subscriptions.push(documentOpenDisposable);
     context.subscriptions.push(documentWatcher);
@@ -151,4 +179,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     VuePreviewProvider.disposeAll();
+
+    // Stop Python backend
+    if (aimdBackend) {
+        aimdBackend.dispose();
+        aimdBackend = null;
+    }
 }

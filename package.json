@@ -4,7 +4,7 @@
   "displayName": "AIMD Studio",
   "description": "A VS Code extension for editing and previewing AIMD protocol files",
   "icon": "resources/icon.png",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -59,13 +59,8 @@
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "aimd.toggleExperimental",
-        "title": "Toggle Experimental Preview",
-        "category": "AIMD"
-      },
-      {
-        "command": "aimd.toggleVue",
-        "title": "Toggle Vue Mode",
+        "command": "aimd.helloBackend",
+        "title": "Hello Backend (Test Python)",
         "category": "AIMD"
       }
     ],
