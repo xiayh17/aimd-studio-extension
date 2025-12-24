@@ -1,0 +1,47 @@
+# Changelog
+
+All notable changes to the "aimd-studio" extension will be documented in this file.
+
+## [0.2.1] - 2025-12-25
+
+### Added
+- **Westlake Theme**: New "Swedish Minimalist" design aesthetic with muted, sophisticated color palette for both light and dark modes.
+- **Dark Mode Support**: Full dark mode implementation with centralized theme tokens in `theme.css`.
+- **Check Component Enhancements**: Refined `{{check}}` styling with teal accent colors, adaptive theme colors, and "dimming" effect on checked state.
+
+### Changed
+- **Theme Architecture**: Centralized all color tokens using CSS custom properties for consistent theming across components.
+- **Component Styling**: Updated `StepCard`, `Callout`, `VarTable`, `VarInput`, and `CheckPill` to use semantic theme variables.
+
+### Fixed
+- **Line Marker Visibility**: Resolved issue where source line markers were visible in preview by switching to invisible HTML comments.
+- **Scroll Synchronization**: Improved element-based scroll sync accuracy with updated line number injection.
+
+## [0.2.0] - 2025-12-24
+
+### Added
+- **Scientific Minimalist UI Redesign**: Transitioned from "Cyberpunk" to a cleaner, high-contrast, professional research aesthetic.
+- **Unified Renderer Migration**: Replaced `marked` with the `Remark/Rehype` ecosystem for robust parsing and future extensibility.
+- **Vue Webview Integration**: Full migration to Vue.js for the preview interface, enabling richer interactivity.
+- **Theme Switching**: Introduced "Modern", "Journal", and "Clinical" themes with proper style encapsulation.
+- **Hover Interactions**: Enhanced variable tooltips and hover states for better data visibility.
+
+### Changed
+- **Directory Structure**: Optimized `@src` organization for better modularity and maintainability.
+- **Preview Engine**: Significant refactoring of the preview module (types, styles, components, scripts, parser).
+
+### Fixed
+- **Acorn Parsing Error**: Resolved parsing issues by switching to standard Unified pipeline.
+- **Tooltip Visibility**: Fixed z-index and stacking context issues for variable tooltips.
+- **Header Adoption**: Corrected logic for headers appearing immediately before step cards.
+- **Webview Process Error**: Eliminated Node.js dependency leaks into the browser context.
+
+## [0.1.0] - 2025-12-23
+
+### Added
+- Initial release of AIMD Studio.
+- Core language support for `.aimd` files (syntax highlighting, grammar).
+- **ProFlow-inspired Timeline Preview**: A high-fidelity, interactive visualization tool for protocol files.
+- **Experimental Renderer**: Toggleable advanced UI with card-based layouts and step navigation.
+- Status bar integration for quick access to preview functionality.
+- Customization options for status bar appearance (icon, text, priority).

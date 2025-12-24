@@ -1,0 +1,41 @@
+# AIMD Component Test File
+
+## Variable Tests
+
+Simple variable: {{var|experimenter_name: str, title="实验者", description="负责本次实验研究的研究人员"}}
+
+Variable with default: {{var|experiment_time: datetime, title="实验时间", description="实验开始的日期和时间", default="2024-01-01"}}
+
+Variable with constraints: {{var|temperature: float, title="温度", description="反应温度(摄氏度)", ge=0, le=100}}
+
+## Callout Tests
+
+> [!NOTE]
+> This is a note callout block that provides additional information.
+
+> [!TIP]
+> This tip helps you improve your workflow.
+
+> [!WARNING]
+> Be careful with this configuration!
+
+> [!CAUTION]
+> This operation cannot be undone.
+
+## Table Variable Test
+
+{{var|cell_seeding_density: int = 5000, title="接种密度", g=10000, description="每孔接种的细胞数量"}}
+
+{{var|seeding_density: int = 24.0, title="收集密度", ge=0, description="细胞培养到收集时的密度 (小时)"}}
+
+## More Content
+
+This is a paragraph with some regular markdown content. We can test that everything renders correctly.
+
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+
+1. Numbered item 1
+2. Numbered item 2
+3. Numbered item 3
