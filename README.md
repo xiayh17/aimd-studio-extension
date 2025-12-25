@@ -1,5 +1,10 @@
 # AIMD Studio
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/yonghe.aimd-studio?label=VS%20Code%20Marketplace&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=yonghe.aimd-studio)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/yonghe.aimd-studio?label=Installs&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=yonghe.aimd-studio)
+[![Open VSX](https://img.shields.io/open-vsx/v/yonghe/aimd-studio?label=Open%20VSX&logo=eclipse)](https://open-vsx.org/extension/yonghe/aimd-studio)
+[![GitHub](https://img.shields.io/github/license/xiayh17/aimd-studio-extension?label=License)](https://github.com/xiayh17/aimd-studio-extension/blob/main/LICENSE)
+
 AIMD Studio is a professional VS Code extension designed for editing and previewing **AIMD (Advanced Interactive Molecular/Lab Design)** protocol files. It provides a modern, "Scientific Minimalist" preview interface to help scientists and researchers visualize their experimental workflows.
 
 ## Features
