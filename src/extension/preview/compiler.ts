@@ -12,6 +12,9 @@ import remarkBreaks from 'remark-breaks';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import rehypeRaw from 'rehype-raw';
+import { getComponentForType, getLanguageForCodeType } from '../../shared/messagebus';
+import { HighlighterService } from '../services/HighlighterService';
+import { marked } from 'marked';
 
 // Regex patterns for matching AIMD syntax
 const VARIABLE_REGEX = /\{\{\s*(var(?:_table)?)\s*\|\s*([^}]+)\}\}/g;
@@ -87,56 +90,274 @@ function collapseMultiLineVariables(content: string): string {
  * Convert AIMD variables to custom element syntax
  */
 /**
- * Convert AIMD variables to custom element syntax
+ * Convert AIMD variables to custom element syntax (Async with Highlighting)
  */
-function convertVariablesToComponents(html: string): string {
-    return html.replace(VARIABLE_REGEX, (match, tagType, paramsMatch) => {
-        // Parse parameters using robust parser
-        const attributes = parseTypedParams(paramsMatch || '');
+/**
+ * Helper to process a single variable match
+ */
+function processVariableMatch(
+    match: RegExpMatchArray,
+    variablesMetadata?: Record<string, any>,
+    calculatedFields?: Record<string, any>,
+    assignersMetadata?: Record<string, any>
+) {
+    const tagType = match[1];
+    const paramsMatch = match[2];
 
-        // Determine component name and required attributes
-        const varName = attributes.name || attributes.g || ''; // 'g' can happen if name is implied as first arg? Actually parseTypedParams puts unnamed args in 'g' or similar? 
-        // Let's check parseTypedParams implementation below. 
-        // For now, let's assume standard behavior: first arg is name if no key.
+    // Parse parameters using robust parser
+    const attributes = parseTypedParams(paramsMatch || '');
 
-        // Check if this is a table variable
-        const isTable = tagType === 'var_table' || attributes.subvars !== undefined;
+    // Determine component name
+    const varName = attributes.name || '';
 
-        if (isTable) {
-            // Process subvars into columns
-            let columnsJson = '[]';
-            if (attributes.subvars) {
-                const columns = parseSubvars(attributes.subvars);
-                columnsJson = JSON.stringify(columns);
+    // Supplement with backend metadata if available
+    const meta = variablesMetadata ? variablesMetadata[varName] : null;
+    if (meta) {
+        attributes.title = meta.title || attributes.title;
+        attributes.description = meta.description || attributes.description;
+        attributes.type = attributes.type || meta.type;
+        attributes.default = (meta.default !== undefined && meta.default !== null) ? String(meta.default) : attributes.default;
+
+        // Merge constraints
+        if (meta.constraints) {
+            Object.assign(attributes, meta.constraints);
+        }
+    }
+
+    // Check if this is a table variable
+    const isTable = tagType === 'var_table' || attributes.subvars !== undefined;
+
+    return {
+        tagType,
+        attributes,
+        varName,
+        meta,
+        isTable,
+        calculatedFields,
+        assignersMetadata
+    };
+}
+
+/**
+ * Generate HTML for a variable component (Common Logic)
+ */
+function generateVariableHtml(
+    data: ReturnType<typeof processVariableMatch>,
+    highlightedHtml: string = ''
+): string {
+    const { attributes, varName, meta, isTable, calculatedFields, assignersMetadata } = data;
+
+    if (isTable) {
+        // Process subvars into columns
+        let columnsJson = '[]';
+        if (attributes.subvars) {
+            const columns = parseSubvars(attributes.subvars);
+            columnsJson = JSON.stringify(columns);
+        }
+
+        // Get initial rows from backend metadata if available
+        let initialRowsJson = '';
+        if (meta && meta.default_value && Array.isArray(meta.default_value)) {
+            initialRowsJson = JSON.stringify(meta.default_value);
+        }
+
+        // Check if there's a calculated value for this table
+        const calcValue = calculatedFields ? calculatedFields[varName] : null;
+        if (calcValue && Array.isArray(calcValue)) {
+            initialRowsJson = JSON.stringify(calcValue);
+        }
+
+        // Get assigner info for this field
+        const assignerInfo = assignersMetadata ? assignersMetadata[varName] : null;
+        const assignerMode = assignerInfo?.mode || '';
+        const isReadonly = assignerInfo?.readonly || false;
+        const dependentFields = assignerInfo?.dependent_fields || [];
+        const depsJson = dependentFields.length > 0 ? JSON.stringify(dependentFields) : '';
+
+        // Generate var-table element
+        const tableAttrs = [
+            `name="${escapeAttr(String(varName))}"`,
+            attributes.title ? `title="${escapeAttr(String(attributes.title))}"` : '',
+            `columns="${escapeAttr(columnsJson)}"`,
+            initialRowsJson ? `initial-rows="${escapeAttr(initialRowsJson)}"` : '',
+            calcValue ? 'is-calculated="true"' : '',
+            assignerMode ? `assigner-mode="${escapeAttr(assignerMode)}"` : '',
+            isReadonly ? 'assigner-readonly="true"' : '',
+            depsJson ? `assigner-deps="${escapeAttr(depsJson)}"` : ''
+        ].filter(Boolean).join(' ');
+
+        return `<var-table ${tableAttrs}></var-table>`;
+    } else {
+        // Check if there's a calculated value for this variable
+        const calcValue = calculatedFields ? calculatedFields[varName] : null;
+        let calculatedValue = '';
+        if (calcValue !== undefined && calcValue !== null) {
+            if (typeof calcValue === 'object' && calcValue.checked !== undefined) {
+                // It's a CheckValue - format for display
+                calculatedValue = calcValue.annotation || (calcValue.checked ? '✓' : '✗');
+            } else if (typeof calcValue === 'object') {
+                calculatedValue = JSON.stringify(calcValue);
+            } else {
+                calculatedValue = String(calcValue);
+            }
+        }
+
+        // Get assigner info for this field
+        const assignerInfo = assignersMetadata ? assignersMetadata[varName] : null;
+        const assignerMode = assignerInfo?.mode || '';
+        const isReadonly = assignerInfo?.readonly || false;
+        const dependentFields = assignerInfo?.dependent_fields || [];
+        const depsJson = dependentFields.length > 0 ? JSON.stringify(dependentFields) : '';
+
+        // Try to resolve type from metadata if not in attributes
+        // Metadata keys might come from Python backend (pydantic)
+        const varMeta = meta;
+        // Check potential keys for type - prioritize varType for custom components
+        // Backend 'varType' is the specific semantic type (e.g. 'FileIdPNG', 'AiralogyMarkdown')
+        // 'attributes.type' might be the generic JSON schema type (e.g. 'string', 'any') or user input
+        const backendVarType = varMeta?.varType || varMeta?.var_type;
+
+        let type = attributes.type || 'str';
+
+        if (backendVarType) {
+            // Always prefer the specific backend type if available
+            // This ensures 'FileIdPNG' is used instead of 'string', etc.
+            type = backendVarType;
+        } else if (varMeta?.type) {
+            // Fallback to generic meta type if no specific varType
+            // But only if we didn't have a type from attributes (which we might have handled in processVariableMatch)
+            // Actually processVariableMatch merges meta.type into attributes.type already.
+            // So 'type' variable here already holds that.
+        }
+
+        const typeStr = String(type);
+
+        // Determine component to use based on type
+        const componentTag = getComponentForType(typeStr);
+        const language = getLanguageForCodeType(typeStr);
+
+        // Generate component element
+        const inputAttrs = [
+            `name="${escapeAttr(String(varName))}"`,
+            `var-type="${escapeAttr(typeStr)}"`,
+            attributes.title ? `title="${escapeAttr(String(attributes.title))}"` : '',
+            attributes.default ? `default-value="${escapeAttr(String(attributes.default))}"` : '',
+            attributes.description ? `description="${escapeAttr(String(attributes.description))}"` : '',
+            calculatedValue ? `calculated-value="${escapeAttr(calculatedValue)}"` : '',
+            assignerMode ? `assigner-mode="${escapeAttr(assignerMode)}"` : '',
+            isReadonly ? 'assigner-readonly="true"' : '',
+            depsJson ? `assigner-deps="${escapeAttr(depsJson)}"` : '',
+            attributes.min ? `min="${escapeAttr(String(attributes.min))}"` : '',
+            attributes.max ? `max="${escapeAttr(String(attributes.max))}"` : '',
+            attributes.ge ? `ge="${escapeAttr(String(attributes.ge))}"` : '',
+            attributes.le ? `le="${escapeAttr(String(attributes.le))}"` : '',
+            attributes.gt ? `gt="${escapeAttr(String(attributes.gt))}"` : '',
+            attributes.lt ? `lt="${escapeAttr(String(attributes.lt))}"` : '',
+            // Add language attribute for code blocks
+            language !== 'plaintext' ? `language="${escapeAttr(language)}"` : '',
+            // Add highlighted/rendered HTML (for code or markdown)
+            highlightedHtml ? `rendered-html="${escapeAttr(highlightedHtml)}"` : ''
+        ].filter(Boolean).join(' ');
+
+        return `<${componentTag} ${inputAttrs}></${componentTag}>`;
+    }
+}
+
+/**
+ * Convert AIMD variables to custom element syntax (Async with Highlighting)
+ */
+async function convertVariablesToComponents(
+    html: string,
+    variablesMetadata?: Record<string, any>,
+    calculatedFields?: Record<string, any>,
+    assignersMetadata?: Record<string, any>
+): Promise<string> {
+    const matches = [...html.matchAll(VARIABLE_REGEX)];
+    if (matches.length === 0) return html;
+
+    const replacements = await Promise.all(matches.map(async (match) => {
+        const data = processVariableMatch(match, variablesMetadata, calculatedFields, assignersMetadata);
+
+        let highlightedHtml = '';
+        if (!data.isTable) {
+            // Determine content to highlight/render
+            // Priority: calculatedValue > default value
+            // We need to re-calculate 'calculatedValue' logic briefly or extract it. 
+            // For simplicity, we just use the raw attribute default for now if not calculated
+            // Actually, let's just peek at the data logic again or assume we can pass the content.
+
+            // Re-deriving contentToProcess for highlighting:
+            const calcValue = data.calculatedFields ? data.calculatedFields[data.varName] : null;
+            let val = '';
+            if (calcValue !== undefined && calcValue !== null) {
+                if (typeof calcValue === 'object') val = JSON.stringify(calcValue); // simplified
+                else val = String(calcValue);
+            } else {
+                val = String(data.attributes.default || '');
             }
 
-            // Generate var-table element
-            const tableAttrs = [
-                `name="${escapeAttr(String(varName))}"`,
-                attributes.title ? `title="${escapeAttr(String(attributes.title))}"` : '',
-                `columns="${escapeAttr(columnsJson)}"`
-            ].filter(Boolean).join(' ');
+            const type = String(data.attributes.type || (data.meta?.type) || 'str');
+            const language = getLanguageForCodeType(type);
 
-            return `<var-table ${tableAttrs}></var-table>`;
-        } else {
-            // Generate var-input element
-            const inputAttrs = [
-                `name="${escapeAttr(String(varName))}"`,
-                `var-type="${escapeAttr(String(attributes.type || 'str'))}"`,
-                attributes.title ? `title="${escapeAttr(String(attributes.title))}"` : '',
-                attributes.default ? `default-value="${escapeAttr(String(attributes.default))}"` : '',
-                attributes.description ? `description="${escapeAttr(String(attributes.description))}"` : '',
-                attributes.min ? `min="${escapeAttr(String(attributes.min))}"` : '',
-                attributes.max ? `max="${escapeAttr(String(attributes.max))}"` : '',
-                attributes.ge ? `ge="${escapeAttr(String(attributes.ge))}"` : '',
-                attributes.le ? `le="${escapeAttr(String(attributes.le))}"` : '',
-                attributes.gt ? `gt="${escapeAttr(String(attributes.gt))}"` : '',
-                attributes.lt ? `lt="${escapeAttr(String(attributes.lt))}"` : ''
-            ].filter(Boolean).join(' ');
-
-            return `<var-input ${inputAttrs}></var-input>`;
+            if (val) {
+                if (language !== 'plaintext') {
+                    highlightedHtml = await HighlighterService.getInstance().highlight(val, language);
+                } else if (type === 'AiralogyMarkdown') {
+                    try {
+                        let markdownContent = val;
+                        markdownContent = markdownContent.replace(
+                            /\[\[([^\]]+)\]\]/g,
+                            '<a href="#" class="record-link" data-record-id="$1">$1</a>'
+                        );
+                        const parsed = marked.parse(markdownContent, { async: false });
+                        highlightedHtml = typeof parsed === 'string' ? parsed : await parsed;
+                    } catch (e) {
+                        console.warn('Markdown rendering failed:', e);
+                        highlightedHtml = `<p>Error rendering Markdown: ${e}</p>`;
+                    }
+                }
+            }
         }
+
+        return generateVariableHtml(data, highlightedHtml);
+    }));
+
+    // Reconstruct string
+    let result = '';
+    let lastIndex = 0;
+    matches.forEach((match, i) => {
+        result += html.substring(lastIndex, match.index!);
+        result += replacements[i];
+        lastIndex = match.index! + match[0].length;
     });
+    result += html.substring(lastIndex);
+
+    return result;
+}
+
+/**
+ * Convert AIMD variables to custom element syntax (Sync - No Highlighting)
+ */
+function convertVariablesToComponentsSync(
+    html: string
+): string {
+    const matches = [...html.matchAll(VARIABLE_REGEX)];
+    if (matches.length === 0) return html;
+
+    let result = '';
+    let lastIndex = 0;
+
+    matches.forEach((match) => {
+        const data = processVariableMatch(match);
+        const replacement = generateVariableHtml(data, ''); // No highlighting
+
+        result += html.substring(lastIndex, match.index!);
+        result += replacement;
+        lastIndex = match.index! + match[0].length;
+    });
+
+    result += html.substring(lastIndex);
+    return result;
 }
 
 /**
@@ -508,7 +729,7 @@ function wrapContentInSteps(html: string): string {
 /**
  * Convert check markers to check-pill components
  */
-function convertChecksToComponents(html: string): string {
+function convertChecksToComponents(html: string, calculatedFields?: Record<string, any>, assignersMetadata?: Record<string, any>): string {
     // Regex to match {{check|...}} and potentially leading <p> and trailing text
     // Handles cases like <p>{{check|id}} Title text</p>
     const checkRegex = /(<p>)?\s*\{\{\s*check\s*\|\s*([^}]+)\}\}([ \t]*[^<\n\r]+)?/g;
@@ -533,10 +754,23 @@ function convertChecksToComponents(html: string): string {
 
         if (!title) title = checkId;
 
+        // Check if there's a calculated CheckValue for this check
+        let autoChecked = '';
+        let autoAnnotation = '';
+        if (calculatedFields && calculatedFields[checkId]) {
+            const calcValue = calculatedFields[checkId];
+            if (typeof calcValue === 'object' && calcValue.checked !== undefined) {
+                autoChecked = calcValue.checked ? 'true' : 'false';
+                autoAnnotation = calcValue.annotation || '';
+            }
+        }
+
         const attrs = [
             `name="${escapeAttr(checkId)}"`,
             `title="${escapeAttr(title)}"`,
-            checkedMessage ? `checked-message="${escapeAttr(checkedMessage)}"` : ''
+            checkedMessage ? `checked-message="${escapeAttr(checkedMessage)}"` : '',
+            autoChecked ? `auto-checked="${autoChecked}"` : '',
+            autoAnnotation ? `auto-annotation="${escapeAttr(autoAnnotation)}"` : ''
         ].filter(Boolean).join(' ');
 
         const pill = `<check-pill ${attrs}></check-pill>`;
@@ -777,7 +1011,12 @@ export interface MdxCompileResult {
 /**
  * Compile AIMD content to HTML using MDX
  */
-export async function compileAimdToHtml(content: string): Promise<MdxCompileResult> {
+export async function compileAimdToHtml(
+    content: string,
+    variablesMetadata?: Record<string, any>,
+    calculatedFields?: Record<string, any>,
+    assignersMetadata?: Record<string, any>
+): Promise<MdxCompileResult> {
     try {
         // Build line mapping BEFORE any preprocessing
         const lineMap = buildLineMapping(content);
@@ -811,8 +1050,8 @@ export async function compileAimdToHtml(content: string): Promise<MdxCompileResu
         // 3. Convert all AIMD syntax to components
         // Note: convertSteps and convertChecks are replaced by wrapContentInSteps
         html = wrapContentInSteps(html);
-        html = convertChecksToComponents(html);
-        html = convertVariablesToComponents(html);
+        html = convertChecksToComponents(html, calculatedFields, assignersMetadata);
+        html = await convertVariablesToComponents(html, variablesMetadata, calculatedFields, assignersMetadata);
         html = convertCallouts(html);
         html = convertReferences(html);
 
@@ -844,7 +1083,7 @@ export function compileAimdToHtmlSync(content: string): string {
     let html = preprocessed;
 
     // Convert variables
-    html = convertVariablesToComponents(html);
+    html = convertVariablesToComponentsSync(html);
 
     return html;
 }

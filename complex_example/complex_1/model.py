@@ -18,46 +18,29 @@ from pydantic import BaseModel, Field
 # Airalogy 自有类型导入
 # ============================================================
 
-try:
-    from airalogy.types import (
-        # 自动填充类型
-        UserName,           # 自动填充当前用户名
-        CurrentTime,        # 自动填充当前时间
-        CurrentRecordId,    # 自动填充当前记录 ID
-        VersionStr,         # 语义化版本号
-        
-        # 文件上传类型
-        FileIdPNG,          # PNG 图片
-        FileIdJPG,          # JPG 图片
-        FileIdTIFF,         # TIFF 图片
-        FileIdPDF,          # PDF 文档
-        FileIdCSV,          # CSV 数据文件
-        FileIdMP4,          # MP4 视频
-        
-        # 关联引用类型
-        RecordId,           # 关联其他记录
-        
-        # 特殊输入类型
-        AiralogyMarkdown,   # Markdown 编辑器
-        PyStr,              # Python 代码编辑器
-        IgnoreStr,          # 敏感数据（不持久化）
-    )
-except ImportError:
-    # 本地测试时的模拟类型
-    UserName = str
-    CurrentTime = datetime
-    CurrentRecordId = str
-    VersionStr = str
-    FileIdPNG = str
-    FileIdJPG = str
-    FileIdTIFF = str
-    FileIdPDF = str
-    FileIdCSV = str
-    FileIdMP4 = str
-    RecordId = str
-    AiralogyMarkdown = str
-    PyStr = str
-    IgnoreStr = str
+from airalogy.types import (
+    # 自动填充类型
+    UserName,           # 自动填充当前用户名
+    CurrentTime,        # 自动填充当前时间
+    CurrentRecordId,    # 自动填充当前记录 ID
+    VersionStr,         # 语义化版本号
+    
+    # 文件上传类型
+    FileIdPNG,          # PNG 图片
+    FileIdJPG,          # JPG 图片
+    FileIdTIFF,         # TIFF 图片
+    FileIdPDF,          # PDF 文档
+    FileIdCSV,          # CSV 数据文件
+    FileIdMP4,          # MP4 视频
+    
+    # 关联引用类型
+    RecordId,           # 关联其他记录
+    
+    # 特殊输入类型
+    AiralogyMarkdown,   # Markdown 编辑器
+    PyStr,              # Python 代码编辑器
+    IgnoreStr,          # 敏感数据（不持久化）
+)
 
 
 # ============================================================
@@ -180,16 +163,19 @@ class VarModel(BaseModel):
     # 这些字段会自动获取值，无需用户手动输入
     
     operator: UserName = Field(
+        default="Yonghe Xia",
         title="星际研究员",
         description="自动填充当前登录用户的星际身份 (UserName 类型)"
     )
     
     record_time: CurrentTime = Field(
+        default="2050-01-01T12:00:00Z",
         title="时空坐标记录",
         description="自动填充当前时间 (CurrentTime 类型)"
     )
     
     current_record_id: CurrentRecordId = Field(
+        default="airalogy.id.record.example-001",
         title="量子签名 ID",
         description="自动填充当前记录的唯一标识 (CurrentRecordId 类型)"
     )
@@ -219,7 +205,7 @@ class VarModel(BaseModel):
     )
     
     research_station: str = Field(
-        default="",
+        default="Westlake Station",
         title="研究站点",
         description="星际研究站编号"
     )
@@ -407,13 +393,13 @@ class VarModel(BaseModel):
     # ========================================================
     
     blank_qr_mean: Optional[float] = Field(
-        default=None,
+        default=0.035,
         title="空白QR均值",
         ge=0
     )
     
     control_qr_mean: Optional[float] = Field(
-        default=None,
+        default=1.28,
         title="对照组QR均值",
         ge=0
     )
@@ -483,6 +469,30 @@ print(f"抑制率: {result:.2f}%")
         default=None,
         title="星际联邦 API 密钥",
         description="用于上传结果到联邦数据库，保存时会自动清空 (IgnoreStr 类型)"
+    )
+    
+    # ========================================================
+    # Assigner 自动计算输出字段
+    # ========================================================
+    # 这些字段由 assigner.py 中的函数自动计算填充
+    # 必须在 protocol.aimd 中有对应的模板位置
+    
+    temperature_check: Optional[dict] = Field(
+        default=None,
+        title="培养温度校验",
+        description="Assigner 自动校验：检查培养温度是否在 36-38°C 范围内"
+    )
+    
+    dimension_stability_check: Optional[dict] = Field(
+        default=None,
+        title="维度稳定性校验",
+        description="Assigner 自动校验：检查时空稳定场强度是否 ≥95%"
+    )
+    
+    estimated_total_time: Optional[float] = Field(
+        default=7,
+        title="预计实验总时长 (小时)",
+        description="Assigner 自动计算：根据贴壁时间、处理时间、CCK-8孵育时间估算"
     )
 
 

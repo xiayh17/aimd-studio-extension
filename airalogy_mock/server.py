@@ -77,6 +77,39 @@ class RecordUpdateRequest(BaseModel):
     data: dict[str, Any]
 
 
+class StartRecordSessionRequest(BaseModel):
+    """启动 Record Session 请求"""
+    protocol_id: str
+    lab_id: str = "mock-lab"
+    project_id: str = "mock-project"
+    protocol_version: str = "1.0.0"
+
+
+class SetVarRequest(BaseModel):
+    """设置变量请求"""
+    var_id: str
+    value: Any
+
+
+class SetVarsRequest(BaseModel):
+    """批量设置变量请求"""
+    data: dict[str, Any]
+
+
+class SetStepRequest(BaseModel):
+    """设置步骤请求"""
+    step_id: str
+    checked: Optional[bool] = None
+    annotation: str = ""
+
+
+class SetCheckRequest(BaseModel):
+    """设置检查点请求"""
+    check_id: str
+    checked: bool
+    annotation: str = ""
+
+
 class LoadAssignerRequest(BaseModel):
     """加载 Assigner 模块请求"""
     module_path: str  # 相对于工作目录的路径
@@ -459,6 +492,269 @@ async def download_records(record_ids: list[str]):
     """批量下载记录"""
     json_str = client.download_records_json(record_ids)
     return JSONResponse(content=json.loads(json_str))
+
+
+# ============================================================
+# Record Session API (Record 模式)
+# ============================================================
+
+@app.post("/api/session/start")
+async def start_record_session(req: StartRecordSessionRequest):
+    """
+    启动 Record 模式
+    
+    创建一个新的 Record Session，用于记录实验数据
+    """
+    session = client.start_record_session(
+        protocol_id=req.protocol_id,
+        lab_id=req.lab_id,
+        project_id=req.project_id,
+        protocol_version=req.protocol_version,
+    )
+    return {
+        "success": True,
+        "record_id": session.airalogy_record_id,
+        "protocol_id": session.airalogy_protocol_id,
+    }
+
+
+@app.post("/api/session/load/{record_id:path}")
+async def load_record_session(record_id: str):
+    """加载已有的 Record Session"""
+    try:
+        session = client.load_record_session(record_id)
+        return {
+            "success": True,
+            "record_id": session.airalogy_record_id,
+            "protocol_id": session.airalogy_protocol_id,
+            "data": session.to_record(),
+        }
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+
+@app.get("/api/session/current")
+async def get_current_session():
+    """获取当前活跃的 Record Session"""
+    session = client.get_active_session()
+    if session is None:
+        return {"active": False}
+    
+    return {
+        "active": True,
+        "record_id": session.airalogy_record_id,
+        "protocol_id": session.airalogy_protocol_id,
+        "data": session.to_record(),
+    }
+
+
+@app.post("/api/session/end")
+async def end_record_session(save: bool = True):
+    """结束 Record 模式"""
+    record_id = client.end_record_session(save=save)
+    return {
+        "success": True,
+        "saved": save,
+        "record_id": record_id,
+    }
+
+
+@app.post("/api/session/save")
+async def save_current_session():
+    """保存当前 Session（不结束）"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    record_id = session.save()
+    return {
+        "success": True,
+        "record_id": record_id,
+    }
+
+
+# ========================================================
+# Session 变量操作
+# ========================================================
+
+@app.post("/api/session/var")
+async def set_session_var(req: SetVarRequest):
+    """设置单个变量"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.set_var(req.var_id, req.value)
+    return {"success": True, "var_id": req.var_id}
+
+
+@app.post("/api/session/vars")
+async def set_session_vars(req: SetVarsRequest):
+    """批量设置变量"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.set_vars(req.data)
+    return {"success": True, "count": len(req.data)}
+
+
+@app.get("/api/session/var/{var_id}")
+async def get_session_var(var_id: str):
+    """获取变量值"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    value = session.get_var(var_id)
+    return {"var_id": var_id, "value": value}
+
+
+@app.get("/api/session/vars")
+async def get_all_session_vars():
+    """获取所有变量"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    return session.get_all_vars()
+
+
+# ========================================================
+# Session 步骤操作
+# ========================================================
+
+@app.post("/api/session/step")
+async def set_session_step(req: SetStepRequest):
+    """设置步骤状态"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.set_step(req.step_id, checked=req.checked, annotation=req.annotation)
+    return {"success": True, "step_id": req.step_id}
+
+
+@app.post("/api/session/step/{step_id}/complete")
+async def complete_session_step(step_id: str, annotation: str = ""):
+    """标记步骤完成"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.complete_step(step_id, annotation=annotation)
+    return {"success": True, "step_id": step_id}
+
+
+@app.get("/api/session/step/{step_id}")
+async def get_session_step(step_id: str):
+    """获取步骤状态"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    step = session.get_step(step_id)
+    return {"step_id": step_id, "data": step}
+
+
+@app.get("/api/session/steps")
+async def get_all_session_steps():
+    """获取所有步骤"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    return session.get_all_steps()
+
+
+# ========================================================
+# Session 检查点操作
+# ========================================================
+
+@app.post("/api/session/check")
+async def set_session_check(req: SetCheckRequest):
+    """设置检查点状态"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.set_check(req.check_id, checked=req.checked, annotation=req.annotation)
+    return {"success": True, "check_id": req.check_id}
+
+
+@app.post("/api/session/check/{check_id}/pass")
+async def pass_session_check(check_id: str, annotation: str = ""):
+    """通过检查点"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.pass_check(check_id, annotation=annotation)
+    return {"success": True, "check_id": check_id, "checked": True}
+
+
+@app.post("/api/session/check/{check_id}/fail")
+async def fail_session_check(check_id: str, annotation: str = ""):
+    """未通过检查点"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    session.fail_check(check_id, annotation=annotation)
+    return {"success": True, "check_id": check_id, "checked": False}
+
+
+@app.get("/api/session/check/{check_id}")
+async def get_session_check(check_id: str):
+    """获取检查点状态"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    check = session.get_check(check_id)
+    return {"check_id": check_id, "data": check}
+
+
+@app.get("/api/session/checks")
+async def get_all_session_checks():
+    """获取所有检查点"""
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    return session.get_all_checks()
+
+
+# ========================================================
+# Session 文件上传（自动关联到当前 Session）
+# ========================================================
+
+@app.post("/api/session/upload")
+async def upload_file_to_session(
+    var_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """
+    上传文件并自动关联到当前 Session 的变量
+    
+    文件会被上传，file_id 会自动设置到指定的 var_id
+    """
+    session = client.get_active_session()
+    if session is None:
+        raise HTTPException(status_code=400, detail="No active session")
+    
+    content = await file.read()
+    result = client.upload_file_bytes(file.filename, content)
+    
+    # 自动设置到 session 变量
+    session.set_var(var_id, result["id"])
+    
+    return {
+        "success": True,
+        "var_id": var_id,
+        "file_id": result["id"],
+        "file_name": result["file_name"],
+    }
 
 
 # ============================================================

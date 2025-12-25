@@ -1,0 +1,32 @@
+{
+  "airalogy_record_id": "airalogy.id.record.4289549c-3d38-4a1b-8d59-7fcc6b88986c.v.1",
+  "record_id": "4289549c-3d38-4a1b-8d59-7fcc6b88986c",
+  "record_version": 1,
+  "metadata": {
+    "airalogy_protocol_id": "airalogy.id.lab.mock-lab.project.mock-project.protocol.mock-protocol.v.1.0.0",
+    "lab_id": "mock-lab",
+    "project_id": "mock-project",
+    "protocol_id": "mock-protocol",
+    "protocol_version": "1.0.0",
+    "record_num": 1,
+    "record_current_version_submission_time": "2025-12-26T01:11:35.970171",
+    "record_current_version_submission_user_id": "airalogy.id.user.mock-user",
+    "record_initial_version_submission_time": "2025-12-26T01:10:51.676918",
+    "record_initial_version_submission_user_id": "airalogy.id.user.mock-user",
+    "sha1": "a17227b6baf5eff873d840cc44e81165f2e749b0"
+  },
+  "data": {
+    "var": {
+      "operator": "夏永和",
+      "record_time": "3040",
+      "current_record_id": "断断电",
+      "protocol_version": "断断电",
+      "research_station": "的的的v",
+      "previous_experiment": "断断电",
+      "incubator_settings_photo": "啊的身份",
+      "cell_initial_photo": "啊发生的"
+    },
+    "step": {},
+    "check": {}
+  }
+}

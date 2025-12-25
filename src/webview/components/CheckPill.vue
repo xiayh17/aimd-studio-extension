@@ -14,25 +14,34 @@
     </span>
     <span class="aimd-check-content">
       <span class="aimd-check-name">{{ title || name }}</span>
-      <span v-if="checked && checkedMessage" class="aimd-check-msg">
-        {{ checkedMessage }}
+      <span v-if="checked && displayMessage" class="aimd-check-msg">
+        {{ displayMessage }}
       </span>
     </span>
   </label>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 interface Props {
   name: string;
   title?: string;
   checkedMessage?: string;
+  autoChecked?: string;       // 'true' or 'false' from assigner
+  autoAnnotation?: string;    // Annotation from assigner
 }
 
 const props = defineProps<Props>();
 
-const checked = ref(false);
+// Initialize checked state from auto-checked if provided
+const checked = ref(props.autoChecked === 'true');
+
+// Display message: prefer auto-annotation if available, else fall back to checkedMessage
+const displayMessage = computed(() => {
+  if (props.autoAnnotation) return props.autoAnnotation;
+  return props.checkedMessage || '';
+});
 </script>
 
 <style scoped>

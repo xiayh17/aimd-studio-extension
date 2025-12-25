@@ -30,11 +30,12 @@ from airalogy.assigner import assigner, AssignerResult, AssignerBase, DefaultAss
 from airalogy.models import CheckValue, StepValue
 
 # 本地客户端 (文件/记录存储)
-from .client import Airalogy
+from .client import Airalogy, RecordSession
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "Airalogy",
+    "RecordSession",
     "UserName", "CurrentTime", "CurrentRecordId", "CurrentProtocolId",
     "VersionStr", "RecordId", "ProtocolId",
     "FileIdPNG", "FileIdJPG", "FileIdTIFF", "FileIdPDF", "FileIdCSV",

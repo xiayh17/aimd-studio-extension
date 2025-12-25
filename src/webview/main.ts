@@ -3,6 +3,11 @@ import App from './App.vue';
 import { registerCustomElements } from './custom-elements';
 import './styles/theme.css';
 
+// Initialize VS Code API
+// This must be called only once
+const vscode = (window as any).acquireVsCodeApi ? (window as any).acquireVsCodeApi() : null;
+(window as any).vscode = vscode;
+
 // Register Vue components as custom elements first
 registerCustomElements();
 

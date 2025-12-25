@@ -47,6 +47,27 @@
         </div>
       </div>
     </div>
+
+    <!-- History Button -->
+    <button 
+      class="aimd-record-history" 
+      @click="$emit('record-history')"
+      title="Historical Records"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </button>
+
+    <!-- Record Mode Toggle -->
+    <button 
+      class="aimd-record-toggle" 
+      :class="{ active: isRecording }"
+      @click="$emit('record-toggle')"
+      :title="isRecording ? 'Stop Recording' : 'Start Record Mode'"
+    >
+      <div class="record-icon"></div>
+    </button>
   </div>
 </template>
 
@@ -56,9 +77,10 @@ import { ref, computed } from 'vue';
 const props = defineProps<{
   mode: number;
   theme: 'elsevier' | 'modern' | 'clinical' | 'westlake';
+  isRecording?: boolean;
 }>();
 
-const emit = defineEmits(['mode-change', 'theme-change']);
+const emit = defineEmits(['mode-change', 'theme-change', 'record-toggle', 'record-history']);
 
 const MODES = [
   { letter: 'ID', label: 'ID' },
@@ -268,4 +290,84 @@ function handleThemeToggle() {
 .aimd-ring-dial[data-mode="1"] .dial-letter { color: #4f46e5; }
 .aimd-ring-dial[data-mode="2"] .dial-letter { color: #d97706; }
 .aimd-ring-dial[data-mode="3"] .dial-letter { color: #7c3aed; }
+
+/* Record Toggle */
+.aimd-record-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.aimd-record-toggle:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* History Button Styles */
+.aimd-record-history {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--aimd-bg-primary);
+  color: var(--aimd-text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.aimd-record-history:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.aimd-record-history:active {
+  transform: scale(0.95);
+}
+
+.aimd-record-history svg {
+  width: 18px;
+  height: 18px;
+  color: var(--aimd-text-secondary);
+}
+
+.aimd-record-toggle:active {
+  transform: scale(0.95);
+}
+
+.aimd-record-toggle.active .record-icon {
+  animation: pulse-red 1.5s infinite;
+}
+
+.record-icon {
+  width: 14px;
+  height: 14px;
+  background-color: #ef4444; /* Red-500 */
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.aimd-record-toggle.active .record-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px; /* Square stop icon */
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
 </style>

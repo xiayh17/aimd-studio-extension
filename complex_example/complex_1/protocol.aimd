@@ -1,3 +1,5 @@
+![星际联邦生物实验协议](files/banner.png)
+
 # 🌌 星际联邦生物实验协议 v2.0
 
 **任务代号：** Project Prometheus - 跨维度细胞再生研究
@@ -114,6 +116,13 @@
 - 温度：{{var|culture_temp: float = 37.0, title="培养温度 (°C)", ge=20, le=45}}
 - CO₂ 浓度：{{var|co2_level: float = 5.0, title="CO₂浓度 (%)", ge=0, le=10}}
 - 时空稳定场强度：{{var|stability_field: float = 99.9, title="稳定场强度 (%)", ge=95, le=100}}
+
+> [!TIP] 🤖 Assigner 自动校验
+> 以下检查点由 Assigner 自动计算，根据输入参数实时校验
+
+{{check|temperature_check}} 培养温度校验（自动：36-38°C 为合格）
+
+{{check|dimension_stability_check}} 维度稳定性校验（自动：≥95% 为合格）
 
 培养 {{var|adhesion_time: float = 24.0, title="贴壁时间 (小时)", ge=0}} 小时，等待细胞适应当前维度的物理常数。
 
@@ -281,6 +290,11 @@
 | 能量来源 | {{ref_var|energy_source}} |
 | 基础能量 | {{ref_var|base_energy_level}} TeV |
 | 处理时间 | {{ref_var|treatment_duration}} 小时 |
+
+> [!TIP] 🤖 Assigner 自动计算
+> 以下字段由 Assigner 根据实验参数自动计算
+
+预计实验总时长：{{var|estimated_total_time: float, title="预计总时长", description="Assigner 自动计算"}} 小时
 
 实验报告：{{var|final_report}}
 

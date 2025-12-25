@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { getVueWebviewHtml } from './html';
 import { escapeHtml } from '../../shared/utils';
 
@@ -16,12 +17,16 @@ export class VuePreviewProvider {
     private static updateTimeouts = new Map<string, NodeJS.Timeout>();
     private static scrollDebounceTimeouts = new Map<string, NodeJS.Timeout>();
     private static extensionUri: vscode.Uri;
+    private static backend: import('../backend/backend').AimdBackend | null = null;
 
     /**
-     * Initialize the provider with extension context
+     * Initialize the provider with extension context and backend
      */
-    public static initialize(context: vscode.ExtensionContext): void {
+    public static initialize(context: vscode.ExtensionContext, backend?: import('../backend/backend').AimdBackend): void {
         this.extensionUri = context.extensionUri;
+        if (backend) {
+            this.backend = backend;
+        }
     }
 
     /**
@@ -45,6 +50,9 @@ export class VuePreviewProvider {
             return;
         }
 
+        // Get the document's directory for loading local resources (images, etc.)
+        const documentDir = vscode.Uri.file(path.dirname(uri.fsPath));
+
         // Create new panel
         panel = vscode.window.createWebviewPanel(
             this.viewType,
@@ -54,7 +62,8 @@ export class VuePreviewProvider {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.joinPath(this.extensionUri, 'out', 'webview')
+                    vscode.Uri.joinPath(this.extensionUri, 'out', 'webview'),
+                    documentDir  // Allow loading local images from document directory
                 ]
             }
         );
@@ -98,6 +107,116 @@ export class VuePreviewProvider {
             case 'error':
                 vscode.window.showErrorMessage(`Preview error: ${message.error}`);
                 break;
+            case 'trigger-assigner':
+                // Handle manual assigner trigger from webview
+                this.handleTriggerAssigner(panel, uri, message.fieldName);
+                break;
+            // Native Bridge Navigation
+            case 'nav:open-resource':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleOpenResource } = require('./nativeBridge');
+                handleOpenResource(panel, uri, message.payload);
+                break;
+            // File Operations
+            case 'file:select':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleFileSelect } = require('./nativeBridge');
+                handleFileSelect(panel, uri, message.payload);
+                break;
+            case 'file:upload':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleFileUpload } = require('./nativeBridge');
+                handleFileUpload(panel, uri, message.payload);
+                break;
+            case 'variable:update':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleVariableUpdate } = require('./nativeBridge');
+                handleVariableUpdate(panel, uri, message.payload);
+                break;
+            case 'record:search':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleRecordSearch } = require('./nativeBridge');
+                handleRecordSearch(panel, uri, message.payload, this.backend);
+                break;
+            // Record Session
+            case 'session:start':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionStart } = require('./nativeBridge');
+                handleSessionStart(panel, uri, message.payload, this.backend);
+                break;
+            case 'session:end':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionEnd } = require('./nativeBridge');
+                handleSessionEnd(panel, uri, message.payload, this.backend);
+                break;
+            case 'session:upload':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionUpload } = require('./nativeBridge');
+                handleSessionUpload(panel, uri, message.payload, this.backend);
+                break;
+            case 'session:set-var':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionSetVar } = require('./nativeBridge');
+                handleSessionSetVar(panel, uri, message.payload, this.backend);
+                break;
+            case 'session:list-records':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionListRecords } = require('./nativeBridge');
+                handleSessionListRecords(panel, uri, this.backend);
+                break;
+            case 'session:load':
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const { handleSessionLoadRecord } = require('./nativeBridge');
+                handleSessionLoadRecord(panel, uri, message.payload, this.backend);
+                break;
+        }
+    }
+
+    /**
+     * Handle manual assigner trigger from webview
+     */
+    private static async handleTriggerAssigner(
+        panel: vscode.WebviewPanel,
+        uri: vscode.Uri,
+        fieldName: string
+    ): Promise<void> {
+        if (!this.backend || !fieldName) {
+            console.log('[AIMD Debug] No backend or fieldName for trigger');
+            return;
+        }
+
+        try {
+            console.log('[AIMD Debug] Triggering assigner:', fieldName);
+
+            // Get current variable values (we need to pass data to the assigner)
+            const projectDir = path.dirname(uri.fsPath);
+            await this.backend.loadProject(projectDir);
+            const variablesMetadata = await this.backend.getVariables();
+
+            // Build data from current values
+            const currentData: Record<string, any> = {};
+            for (const [name, meta] of Object.entries(variablesMetadata)) {
+                if (meta.default_value !== undefined) {
+                    currentData[name] = meta.default_value;
+                } else if (meta.default !== undefined) {
+                    currentData[name] = meta.default;
+                }
+            }
+
+            // Trigger the specific assigner
+            const result = await this.backend.triggerAssigner(fieldName, currentData);
+
+            if (result.success) {
+                console.log('[AIMD Debug] Assigner triggered successfully:', result.calculated_fields);
+                // Refresh the preview to show new values, passing the manually calculated fields
+                this.sendContent(panel, uri, result.calculated_fields);
+            } else {
+                console.error('[AIMD Debug] Assigner trigger failed:', result.error);
+                vscode.window.showWarningMessage(`Assigner failed: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('[AIMD Debug] Error triggering assigner:', error);
+            vscode.window.showErrorMessage(`Error: ${(error as Error).message}`);
         }
     }
 
@@ -106,23 +225,77 @@ export class VuePreviewProvider {
      */
     private static async sendContent(
         panel: vscode.WebviewPanel,
-        uri: vscode.Uri
+        uri: vscode.Uri,
+        additionalCalculatedFields?: Record<string, any>
     ): Promise<void> {
         try {
             const document = await vscode.workspace.openTextDocument(uri);
             const content = document.getText();
 
+            // Load project and get metadata from backend if available
+            let variablesMetadata: Record<string, any> = {};
+            let calculatedFields: Record<string, any> = {};
+            let assignersMetadata: Record<string, any> = {};
+
+            if (this.backend) {
+                try {
+                    const projectDir = vscode.Uri.file(require('path').dirname(uri.fsPath)).fsPath;
+                    console.log('[AIMD Debug] Loading project:', projectDir);
+                    await this.backend.loadProject(projectDir);
+
+                    console.log('[AIMD Debug] Project loaded, getting variables...');
+                    variablesMetadata = await this.backend.getVariables();
+                    console.log('[AIMD Debug] Got variables:', Object.keys(variablesMetadata).length, 'fields');
+
+                    // Get assigner metadata (modes, dependencies)
+                    assignersMetadata = await this.backend.getAssigners();
+                    console.log('[AIMD Debug] Got assigners:', Object.keys(assignersMetadata).length, 'assigners');
+
+                    // Build initial data from default values for calculation
+                    const initialData: Record<string, any> = {};
+                    for (const [name, meta] of Object.entries(variablesMetadata)) {
+                        if (meta.default_value !== undefined) {
+                            initialData[name] = meta.default_value;
+                        } else if (meta.default !== undefined) {
+                            initialData[name] = meta.default;
+                        }
+                    }
+
+                    // Run calculations with default values
+                    if (Object.keys(initialData).length > 0) {
+                        console.log('[AIMD Debug] Running calculations with', Object.keys(initialData).length, 'initial values');
+                        const calcResult = await this.backend.calculate(initialData);
+                        calculatedFields = calcResult.calculated_fields || {};
+                        console.log('[AIMD Debug] Calculated fields:', Object.keys(calculatedFields));
+                    }
+
+                    // Merge additional fields from manual trigger (they take priority)
+                    if (additionalCalculatedFields) {
+                        Object.assign(calculatedFields, additionalCalculatedFields);
+                        console.log('[AIMD Debug] Merged manual trigger fields:', Object.keys(additionalCalculatedFields));
+                    }
+                } catch (backendError) {
+                    console.error('[AIMD Debug] Backend error:', backendError);
+                }
+            } else {
+                console.log('[AIMD Debug] No backend available');
+            }
+
             // Use MDX compiler for rendering
             const { compileAimdToHtml } = require('./compiler');
-            const result = await compileAimdToHtml(content);
+            const result = await compileAimdToHtml(content, variablesMetadata, calculatedFields, assignersMetadata);
 
             if (result.error) {
                 throw new Error(result.error);
             }
 
+            // Convert relative image paths to webview URIs
+            const documentDir = path.dirname(uri.fsPath);
+            const htmlWithImages = this.convertImagePaths(result.html, documentDir, panel.webview);
+
             panel.webview.postMessage({
                 type: 'update',
-                content: result.html
+                content: htmlWithImages
             });
         } catch (error) {
             panel.webview.postMessage({
@@ -130,6 +303,37 @@ export class VuePreviewProvider {
                 content: `<div style="color:red;padding:20px;">Error: ${escapeHtml((error as Error).message)}</div>`
             });
         }
+    }
+
+    /**
+     * Convert relative image paths in HTML to webview URIs
+     */
+    private static convertImagePaths(
+        html: string,
+        documentDir: string,
+        webview: vscode.Webview
+    ): string {
+        // Match img tags with src attribute containing relative paths
+        // Also match markdown-style images that were converted to img tags
+        return html.replace(
+            /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi,
+            (match, before, src, after) => {
+                // Skip if already an absolute URL or data URI
+                if (src.startsWith('http://') ||
+                    src.startsWith('https://') ||
+                    src.startsWith('data:') ||
+                    src.startsWith('vscode-webview-resource:')) {
+                    return match;
+                }
+
+                // Convert relative path to absolute and then to webview URI
+                const absolutePath = path.resolve(documentDir, src);
+                const fileUri = vscode.Uri.file(absolutePath);
+                const webviewUri = webview.asWebviewUri(fileUri);
+
+                return `<img ${before}src="${webviewUri}"${after}>`;
+            }
+        );
     }
 
     /**
@@ -238,6 +442,39 @@ export class VuePreviewProvider {
                 this.scrollThrottleActive.set(resourcePath, false);
             }, THROTTLE_MS);
         });
+    }
+
+    /**
+     * Register watcher for Python files (model.py, assigner.py)
+     * When these files change, refresh all preview panels
+     */
+    public static registerPythonFileWatcher(): vscode.Disposable {
+        // Create a file system watcher for Python files
+        const modelWatcher = vscode.workspace.createFileSystemWatcher('**/model.py');
+        const assignerWatcher = vscode.workspace.createFileSystemWatcher('**/assigner.py');
+
+        const refreshOnChange = () => {
+            console.log('[AIMD Debug] Python file changed, refreshing all previews...');
+            this.refreshAll();
+        };
+
+        // Watch for changes (edit) and save
+        const disposables = [
+            modelWatcher.onDidChange(refreshOnChange),
+            modelWatcher.onDidCreate(refreshOnChange),
+            modelWatcher.onDidDelete(refreshOnChange),
+            assignerWatcher.onDidChange(refreshOnChange),
+            assignerWatcher.onDidCreate(refreshOnChange),
+            assignerWatcher.onDidDelete(refreshOnChange),
+            modelWatcher,
+            assignerWatcher
+        ];
+
+        return {
+            dispose: () => {
+                disposables.forEach(d => d.dispose());
+            }
+        };
     }
 
     /**

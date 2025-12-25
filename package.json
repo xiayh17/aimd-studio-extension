@@ -4,7 +4,7 @@
   "displayName": "AIMD Studio",
   "description": "A VS Code extension for editing and previewing AIMD protocol files",
   "icon": "resources/icon.png",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -161,12 +161,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/aimd-studio-extension"
+    "url": "https://github.com/xiayh17/aimd-studio-extension"
   },
   "bugs": {
-    "url": "https://github.com/your-username/aimd-studio-extension/issues"
+    "url": "https://github.com/xiayh17/aimd-studio-extension/issues"
   },
-  "homepage": "https://github.com/your-username/aimd-studio-extension#readme",
+  "homepage": "https://github.com/xiayh17/aimd-studio-extension#readme",
   "scripts": {
     "vscode:prepublish": "npm run build",
     "compile": "npx tsc -p ./",
@@ -204,6 +204,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "shiki": "^0.14.7",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
     "vue": "^3.5.26"

@@ -1,0 +1,27 @@
+{
+  "airalogy_record_id": "airalogy.id.record.5800edc6-ea51-4105-9147-f4577a3d854d.v.1",
+  "record_id": "5800edc6-ea51-4105-9147-f4577a3d854d",
+  "record_version": 1,
+  "metadata": {
+    "airalogy_protocol_id": "airalogy.id.lab.mock-lab.project.mock-project.protocol.mock-protocol.v.1.0.0",
+    "lab_id": "mock-lab",
+    "project_id": "mock-project",
+    "protocol_id": "mock-protocol",
+    "protocol_version": "1.0.0",
+    "record_num": 1,
+    "record_current_version_submission_time": "2025-12-26T02:01:43.819062",
+    "record_current_version_submission_user_id": "airalogy.id.user.mock-user",
+    "record_initial_version_submission_time": "2025-12-26T02:01:05.972039",
+    "record_initial_version_submission_user_id": "airalogy.id.user.mock-user",
+    "sha1": "572f7e90b723399de9de1533fdbb72cf5f241663"
+  },
+  "data": {
+    "var": {
+      "final_report": "airalogy.id.file.7d4202c2-4bc5-4c94-8b58-6994d4fc57f3.pdf",
+      "experiment_video": "airalogy.id.file.d85d9941-62f8-4dab-86f4-a565a2fbdcae.mp4",
+      "dimension_rift_hologram": "airalogy.id.file.58d63725-f987-45d4-9aa6-99ea4db0bd9c.png"
+    },
+    "step": {},
+    "check": {}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "airalogy_record_id": "airalogy.id.record.33ae14b4-207e-4d51-a526-571f3a6f68fc.v.1",
+  "record_id": "33ae14b4-207e-4d51-a526-571f3a6f68fc",
+  "record_version": 1,
+  "metadata": {
+    "airalogy_protocol_id": "airalogy.id.lab.mock-lab.project.mock-project.protocol.mock-protocol.v.1.0.0",
+    "lab_id": "mock-lab",
+    "project_id": "mock-project",
+    "protocol_id": "mock-protocol",
+    "protocol_version": "1.0.0",
+    "record_num": 1,
+    "record_current_version_submission_time": "2025-12-26T01:09:44.665781",
+    "record_current_version_submission_user_id": "airalogy.id.user.mock-user",
+    "record_initial_version_submission_time": "2025-12-26T01:09:31.047948",
+    "record_initial_version_submission_user_id": "airalogy.id.user.mock-user",
+    "sha1": "662a8d14c9238efb8ea2a88f1659fdf38b82c706"
+  },
+  "data": {
+    "var": {
+      "operator": "夏永和"
+    },
+    "step": {},
+    "check": {}
+  }
+}

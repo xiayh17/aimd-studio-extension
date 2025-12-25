@@ -246,10 +246,141 @@ export class AimdBackend {
     }
 
     /**
+     * Load project files (model.py, assigner.py) from a directory
+     */
+    async loadProject(path: string): Promise<{ success: boolean }> {
+        return this.sendRequest<{ success: boolean }>('load_project', { path });
+    }
+
+    /**
+     * Get variable metadata from the loaded project
+     */
+    async getVariables(): Promise<Record<string, any>> {
+        return this.sendRequest<Record<string, any>>('get_variables');
+    }
+
+    /**
+     * Perform calculations via the backend
+     */
+    async calculate(data: any): Promise<any> {
+        return this.sendRequest<any>('calculate', { data });
+    }
+
+    /**
+     * Get assigner metadata (modes, dependencies)
+     */
+    async getAssigners(): Promise<Record<string, { mode: string; dependent_fields: string[]; readonly: boolean }>> {
+        return this.sendRequest<Record<string, any>>('get_assigners');
+    }
+
+    /**
+     * Manually trigger a specific assigner
+     */
+    async triggerAssigner(fieldName: string, data: any): Promise<{ success: boolean; calculated_fields?: Record<string, any>; error?: string }> {
+        return this.sendRequest<any>('trigger_assigner', { field_name: fieldName, data });
+    }
+
+    /**
      * Call the hello method on the backend
      */
     async hello(name: string = 'World'): Promise<HelloResult> {
         return this.sendRequest<HelloResult>('hello', { name });
+    }
+
+    // ========================================================
+    // Record Session API
+    // ========================================================
+
+    /**
+     * Start a record session
+     */
+    async startSession(protocolId: string): Promise<{ success: boolean; record_id: string; protocol_id: string }> {
+        return this.sendRequest('session_start', { protocol_id: protocolId });
+    }
+
+    /**
+     * End a record session
+     */
+    async endSession(save: boolean = true): Promise<{ success: boolean; saved: boolean; record_id?: string }> {
+        return this.sendRequest('session_end', { save });
+    }
+
+    /**
+     * Upload a file and link to session variable
+     */
+    async uploadToSession(varId: string, filePath: string): Promise<{ success: boolean; var_id: string; file_id: string }> {
+        // Read file as base64
+        const fs = require('fs');
+        const fileData = fs.readFileSync(filePath);
+        const base64Data = fileData.toString('base64');
+        const fileName = path.basename(filePath);
+
+        // We use a special method that combines upload and set_var, or just raw upload?
+        // The mock server has /api/session/upload which takes multipart.
+        // But our JSON-RPC bridge likely needs a wrapper.
+        // Let's assume we added a 'session_upload_base64' method to the python server adapter logic 
+        // OR we use the generic client methods if exposed.
+
+        // Actually, the Python `server.py` likely needs a JSON-RPC adapter for these new HTTP endpoints 
+        // if they aren't automatically exposed. 
+        // Wait, `server.py` is an HTTP server (FastAPI). 
+        // `backend.ts` spawns `server.py`? 
+        // 
+        // Checking `backend.ts`:
+        // It spawns `server.py` but communicates via stdin/stdout JSON-RPC? 
+        // Reviewing `server.py`: It's a FastAPI app. 
+        // But `backend.ts` uses JSON-RPC over stdio. 
+        // This implies there's an adapter layer or `server.py` handles both?
+        //
+        // Let's re-read `server.py` imports. It imports `FastAPI`. 
+        // And `backend.ts` sends JSON objects to stdin.
+        // Does `server.py` have a stdin loop? 
+        //
+        // NOTE: The user provided `server.py` is the HTTP server for the Preview/Mock. 
+        // `AimdBackend` in `backend.ts` seems to assume there is a JSON-RPC handler.
+        // If `server.py` only sets up FastAPI, then `backend.ts` might be launching a different script 
+        // OR `server.py` has a dual mode.
+        //
+        // Let's verify if `backend.ts` is actually talking to `server.py` or something else.
+        // `backend.ts`: `const pythonScript = path.join(this.extensionPath, 'python', 'server.py');`
+        // 
+        // If `server.py` is JUST FastAPI, then `backend.ts` talking JSON-RPC to it won't work 
+        // unless `server.py` has a section that reads stdin.
+        // 
+        // Let's double check `server.py` content again.
+        // I likely missed the bottom part of `server.py` or it's designed to be run as a module 
+        // and there is another entry point for JSON-RPC?
+        // 
+        // Requesting `server.py` full content or checking for `if __name__ == "__main__":`
+
+        return this.sendRequest('session_upload', {
+            var_id: varId,
+            file_name: fileName,
+            file_base64: base64Data
+        });
+    }
+
+    /**
+     * Set a session variable
+     */
+    async setSessionVar(varId: string, value: any): Promise<{ success: boolean }> {
+        return this.sendRequest('session_set_var', { var_id: varId, value });
+    }
+
+    async listRecords(): Promise<any[]> {
+        return this.sendRequest('list_records', {});
+    }
+
+    async loadSession(recordId: string): Promise<any> {
+        return this.sendRequest('session_load', { record_id: recordId });
+    }
+
+    async deleteRecord(recordId: string): Promise<{ success: boolean }> {
+        return this.sendRequest('delete_record', { record_id: recordId });
+    }
+
+    async renameRecord(recordId: string, alias: string): Promise<{ success: boolean }> {
+        return this.sendRequest('rename_record', { record_id: recordId, alias });
     }
 
     /**

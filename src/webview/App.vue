@@ -10,8 +10,11 @@
     <VariableToolbar 
       :mode="currentMode" 
       :theme="designTheme" 
+      :is-recording="isRecording"
       @mode-change="handleModeChange" 
       @theme-change="handleThemeChange" 
+      @record-toggle="handleRecordToggle"
+      @record-history="handleRecordHistory"
     />
   </div>
 </template>
@@ -21,20 +24,16 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import VariableToolbar from './components/VariableToolbar.vue';
 import { scrollToLine } from './scrollSync';
 
-// VS Code API for communication with extension
-declare const acquireVsCodeApi: () => {
-  postMessage: (message: any) => void;
-  getState: () => any;
-  setState: (state: any) => void;
-};
-
-const vscode = acquireVsCodeApi();
+const vscode = (window as any).vscode;
 
 // Reactive state
 const content = ref('');
 const loading = ref(true);
 const designTheme = ref<'elsevier' | 'modern' | 'clinical' | 'westlake'>('elsevier'); // Default to Elsevier (Green)
 const currentMode = ref(1); // Default to 'Value' mode
+const isRecording = ref(false); // New Record Mode state
+const currentSession = ref<any>(null); // Store active session info
+const sessionValues = ref<Map<string, any>>(new Map()); // Store all session values for persistence
 
 // Computed
 const themeClass = computed(() => `theme-${designTheme.value}`);
@@ -53,24 +52,146 @@ function handleMessage(event: MessageEvent) {
         initializeInteractions();
         broadcastMode(currentMode.value);
         broadcastTheme(designTheme.value);
+        broadcastRecordingState(isRecording.value);
+        // CRITICAL: Reapply session values after content refresh
+        if (isRecording.value) {
+          reapplySessionValues();
+        }
       });
       break;
+    
+    // ... existing cases ...
+    
     case 'theme':
-      // Optionally handle external theme set requests
       if (['elsevier', 'modern', 'clinical', 'westlake'].includes(message.theme)) {
         designTheme.value = message.theme;
         broadcastTheme(message.theme);
       }
       break;
+      
     case 'scroll':
-      // Element-based scroll sync from source editor
-      // message.line is the source line number (0-indexed)
       if (typeof message.line === 'number') {
         scrollToLine(message.line);
       }
       break;
+
+    // --- Session Messages ---
+    case 'session:started':
+      console.log('[App] Session started:', message.payload);
+      isRecording.value = true;
+      currentSession.value = message.payload; // { record_id, protocol_id, data? }
+      broadcastRecordingState(true);
+      
+      // If data is provided (from history load), populate variables
+      if (message.payload.data && message.payload.data.data) {
+        const varData = message.payload.data.data.var || {};
+        Object.entries(varData).forEach(([varId, value]) => {
+          updateVariableUI({ varId, value });
+        });
+      }
+      break;
+      
+    case 'session:ended':
+      console.log('[App] Session ended:', message.payload);
+      isRecording.value = false;
+      currentSession.value = null;
+      sessionValues.value.clear(); // Clear stored session values
+      broadcastRecordingState(false);
+      break;
+
+    case 'session:var-updated':
+      console.log('[App] Session var updated:', message.payload);
+      // Store the value (and previewUrl if present)
+      sessionValues.value.set(message.payload.varId, {
+        value: message.payload.value,
+        previewUrl: message.payload.previewUrl || ''
+      });
+      updateVariableUI(message.payload);
+      break;
+      
+    case 'session:error':
+      console.error('[App] Session error:', message.error);
+      isRecording.value = false; // Reset state on failure
+      broadcastRecordingState(false);
+      break;
   }
 }
+
+// ... existing functions ...
+
+function handleRecordToggle() {
+  if (isRecording.value) {
+    // Stop recording
+    vscode.postMessage({
+      type: 'session:end',
+      payload: { save: true }
+    });
+  } else {
+    // Start recording
+    vscode.postMessage({
+      type: 'session:start',
+      payload: { protocol_id: 'complex_1' }
+    });
+  }
+}
+
+function handleRecordHistory() {
+  vscode.postMessage({ type: 'session:list-records' });
+}
+
+function broadcastRecordingState(recording: boolean) {
+  const elements = [
+    'var-input',
+    'var-file-card',
+    'var-table',
+    'var-record-selector',
+    'check-pill',
+    'step-card'
+  ];
+  
+  elements.forEach(tagName => {
+    document.querySelectorAll(tagName).forEach(el => {
+      if (recording) {
+        el.setAttribute('is-recording', 'true');
+      } else {
+        el.removeAttribute('is-recording');
+        // Snap back: clear session values when recording ends
+        el.removeAttribute('session-value');
+      }
+    });
+  });
+}
+
+function updateVariableUI(payload: { varId: string; value: any; previewUrl?: string }) {
+  // Find element by name and update its session-value and session-preview attributes
+  const el = document.querySelector(`[name="${payload.varId}"]`);
+  if (el) {
+    el.setAttribute('session-value', String(payload.value));
+    if (payload.previewUrl) {
+      el.setAttribute('session-preview', payload.previewUrl);
+    }
+  }
+}
+
+function reapplySessionValues() {
+  // Reapply all stored session values to the DOM elements
+  sessionValues.value.forEach((data, varId) => {
+    const el = document.querySelector(`[name="${varId}"]`);
+    if (el) {
+      // Handle both old format (string) and new format (object with value/previewUrl)
+      if (typeof data === 'string') {
+        el.setAttribute('session-value', data);
+      } else {
+        el.setAttribute('session-value', String(data.value));
+        if (data.previewUrl) {
+          el.setAttribute('session-preview', data.previewUrl);
+        }
+      }
+    }
+  });
+}
+
+// ... existing functions continue ...
 
 function handleThemeChange(newTheme: 'elsevier' | 'modern' | 'clinical' | 'westlake') {
   designTheme.value = newTheme;
@@ -136,6 +257,19 @@ function initializeInteractions() {
           element.classList.add('aimd-highlight-flash');
           setTimeout(() => element.classList.remove('aimd-highlight-flash'), 1500);
         }
+      }
+    });
+    
+    // Listen for trigger-assigner events from custom elements
+    contentContainer.addEventListener('trigger-assigner', (e: any) => {
+      const fieldName = e.detail?.fieldName || e.detail;
+      if (fieldName) {
+        console.log('[AIMD Webview] Trigger assigner for:', fieldName);
+        // Send to extension to call backend
+        vscode.postMessage({ 
+          type: 'trigger-assigner', 
+          fieldName: fieldName 
+        });
       }
     });
   }

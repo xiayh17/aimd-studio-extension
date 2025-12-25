@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { VuePreviewProvider } from './preview/provider';
 import { AimdBackend } from './backend/backend';
+import { MemFS } from './providers/FileSystemProvider';
 
 let statusBarItem: vscode.StatusBarItem;
 let aimdBackend: AimdBackend | null = null;
@@ -70,14 +71,14 @@ function executePreview() {
 export async function activate(context: vscode.ExtensionContext) {
     console.log('AIMD Studio is activating...');
 
-    // Initialize Vue Preview Provider
-    VuePreviewProvider.initialize(context);
-
     // Initialize Python Backend (async, non-blocking)
     aimdBackend = new AimdBackend(context.extensionPath);
     aimdBackend.start().catch(err => {
         console.error('Failed to start AIMD backend:', err);
     });
+
+    // Initialize Vue Preview Provider
+    VuePreviewProvider.initialize(context, aimdBackend);
 
     const initialConfig = getConfig();
 
@@ -108,6 +109,11 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
     context.subscriptions.push(configWatcher);
+
+    // Register MemFS for virtual documents
+    const memFs = new MemFS();
+    context.subscriptions.push(vscode.workspace.registerFileSystemProvider('airalogy-fs', memFs, { isCaseSensitive: true }));
+
 
     // 注册预览命令
     const previewCommand = vscode.commands.registerCommand('aimd.preview', executePreview);
@@ -163,6 +169,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const documentWatcher = VuePreviewProvider.registerDocumentWatcher();
     const saveWatcher = VuePreviewProvider.registerSaveWatcher();
     const scrollWatcher = VuePreviewProvider.registerScrollWatcher();
+    const pythonFileWatcher = VuePreviewProvider.registerPythonFileWatcher();
 
     // 添加到订阅
     context.subscriptions.push(previewCommand);
@@ -173,6 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(documentWatcher);
     context.subscriptions.push(saveWatcher);
     context.subscriptions.push(scrollWatcher);
+    context.subscriptions.push(pythonFileWatcher);
 
     console.log('AIMD Studio activated (Vue mode).');
 }

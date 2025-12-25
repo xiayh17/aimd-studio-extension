@@ -6,13 +6,25 @@
     :data-density="density"
   >
     <!-- Header Bar -->
-    <div class="aimd-table-header-bar">
+    <div class="aimd-table-header-bar" :class="{ 'is-readonly': assignerReadonly === 'true' }">
       <div class="aimd-table-title">
         <span class="codicon codicon-table"></span>
         <span>{{ displayName }}</span>
+        <span v-if="assignerReadonly === 'true'" class="aimd-table-lock" title="只读（由 Assigner 计算）">🔒</span>
       </div>
-      <div v-if="rows.length > 0" class="aimd-table-status">
-        {{ rows.length }} ROWS
+      <div class="aimd-table-header-right">
+        <span v-if="assignerMode" class="aimd-table-mode">{{ modeLabel }}</span>
+        <span v-if="hasManualAssigner" class="aimd-table-trigger-wrapper">
+          <span class="aimd-table-trigger" @click="handleTrigger" :title="triggerTooltip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </span>
+          <span v-if="parsedDeps.length > 0" class="aimd-table-deps-badge" :title="depsTooltip">{{ parsedDeps.length }}</span>
+        </span>
+        <span v-if="rows.length > 0" class="aimd-table-status">
+          {{ rows.length }} ROWS
+        </span>
       </div>
     </div>
 
@@ -110,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 interface TableColumn {
   id: string;
@@ -127,7 +139,94 @@ const props = defineProps<{
   title?: string;
   columns?: TableColumn[] | string;
   viewMode?: string;
+  initialRows?: string;
+  assignerMode?: string;
+  assignerReadonly?: string;
+  isCalculated?: string;
+  assignerDeps?: string;  // JSON array of dependent field names
 }>();
+
+const emit = defineEmits<{
+  (e: 'trigger-assigner', fieldName: string): void;
+}>();
+
+// Check if this table has a manual assigner mode
+const hasManualAssigner = computed(() => {
+  return props.assignerMode === 'manual' || 
+         props.assignerMode === 'auto_first' || 
+         props.assignerMode === 'manual_readonly';
+});
+
+// Mode label for header
+const modeLabel = computed(() => {
+  switch (props.assignerMode) {
+    case 'auto': return '自动';
+    case 'manual': return '手动';
+    case 'auto_first': return '首次自动';
+    case 'auto_readonly': return '自动(只读)';
+    case 'manual_readonly': return '手动(只读)';
+    default: return '';
+  }
+});
+
+// Parse dependent fields from JSON prop
+const parsedDeps = computed(() => {
+  if (!props.assignerDeps) return [];
+  try {
+    const result = JSON.parse(props.assignerDeps);
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+});
+
+// Maximum deps to show in tooltip before truncation
+const MAX_DEPS_DISPLAY = 5;
+
+// Trigger button tooltip
+const triggerTooltip = computed(() => {
+  if (parsedDeps.value.length === 0) return '手动计算';
+  const deps = parsedDeps.value.slice(0, MAX_DEPS_DISPLAY);
+  const remaining = parsedDeps.value.length - MAX_DEPS_DISPLAY;
+  let tooltip = `基于: ${deps.join(', ')}`;
+  if (remaining > 0) tooltip += ` +${remaining}更多`;
+  return tooltip;
+});
+
+// Dependencies tooltip for badge
+const depsTooltip = computed(() => {
+  const deps = parsedDeps.value;
+  if (deps.length <= MAX_DEPS_DISPLAY) return `依赖变量: ${deps.join(', ')}`;
+  const shown = deps.slice(0, MAX_DEPS_DISPLAY);
+  return `依赖变量: ${shown.join(', ')} +${deps.length - MAX_DEPS_DISPLAY}更多`;
+});
+
+// Handle manual trigger - dispatch CustomEvent for parent to catch
+function handleTrigger() {
+  // Vue emit doesn't work across Custom Element boundary
+  // So we need to dispatch a native CustomEvent
+  const event = new CustomEvent('trigger-assigner', {
+    bubbles: true,     // Allow event to bubble up
+    composed: true,    // Allow crossing Shadow DOM boundary
+    detail: { fieldName: props.name }
+  });
+  // Get the host element (the custom element itself)
+  const hostElement = document.querySelector(`var-table[name="${props.name}"]`);
+  if (hostElement) {
+    hostElement.dispatchEvent(event);
+  }
+}
+
+// Debug logging
+onMounted(() => {
+  console.log('[VarTable] Mounted with props:', {
+    name: props.name,
+    assignerMode: props.assignerMode,
+    assignerReadonly: props.assignerReadonly,
+    isCalculated: props.isCalculated,
+    hasManualAssigner: hasManualAssigner.value
+  });
+});
 
 // Normalize columns from possible JSON string
 const parsedColumns = computed<TableColumn[]>(() => {
@@ -169,8 +268,22 @@ const displayName = computed(() => {
 
 const density = computed(() => parsedColumns.value.length > 3 ? 'compact' : 'normal');
 
-// Initialize with one row
-const rows = ref<Record<string, string>[]>([{}]);
+// Parse initial rows from prop or use empty row
+const parseInitialRows = () => {
+  if (props.initialRows) {
+    try {
+      const parsed = JSON.parse(props.initialRows);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to parse initialRows:', e);
+    }
+  }
+  return [{}]; // Default to one empty row
+};
+
+const rows = ref<Record<string, string>[]>(parseInitialRows());
 
 function addRow() {
   rows.value.push({});
@@ -221,7 +334,6 @@ function updateCell(rowIndex: number, colId: string, event: Event) {
 }
 
 .aimd-table-status {
-  margin-left: auto;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   color: var(--aimd-text-tertiary);
@@ -229,6 +341,91 @@ function updateCell(rowIndex: number, colId: string, event: Event) {
   padding: 2px 6px;
   border-radius: 3px;
   border: 1px solid var(--aimd-border-light);
+}
+
+.aimd-table-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aimd-table-mode {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--aimd-text-tertiary);
+  padding: 2px 6px;
+  background: var(--aimd-bg-primary);
+  border-radius: 3px;
+  border: 1px solid var(--aimd-border-light);
+}
+
+.aimd-table-lock {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.aimd-table-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 4px;
+  background: var(--aimd-bg-primary);
+  border: 1px solid var(--aimd-border-light);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--aimd-text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.aimd-table-trigger:hover {
+  background: var(--aimd-bg-secondary);
+  border-color: var(--aimd-text-tertiary);
+  color: var(--aimd-text-secondary);
+}
+
+.aimd-table-trigger svg {
+  width: 14px;
+  height: 14px;
+}
+
+.aimd-table-header-bar.is-readonly {
+  background: var(--aimd-bg-secondary);
+}
+
+.aimd-table-header-bar.is-readonly .aimd-table-title {
+  color: var(--aimd-text-tertiary);
+}
+
+.aimd-table-trigger-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.aimd-table-deps-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+  background: var(--aimd-text-tertiary, #94a3b8);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.aimd-table-deps-badge:hover {
+  background: var(--aimd-text-secondary, #64748b);
 }
 
 .aimd-var-table-container {

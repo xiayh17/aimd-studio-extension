@@ -2,6 +2,31 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.4.0] - 2025-12-26
+
+### Added
+- **Record Mode**: New session-based data recording workflow for experimental protocols.
+  - Start/stop recording sessions with toggle button in toolbar
+  - All variable inputs become editable during recording
+  - Session values persist across preview refreshes
+- **File Upload (Session)**: Upload files directly to recording sessions with automatic FileId generation.
+  - Image preview with base64 data URL encoding
+  - Support for PNG, JPG, TIFF, PDF, CSV, MP4 file types
+- **Historical Records**: Load and manage previously recorded experimental data.
+  - History button to browse and load saved records
+  - Delete records with confirmation dialog
+  - Rename records with custom aliases for easy identification
+- **Secret Input**: Password visibility toggle for `IgnoreStr` type fields (API keys, tokens).
+- **Cross-Record Linking**: `RecordId` type selector now queries actual historical records.
+
+### Changed
+- **VarFileCard**: Shows icon placeholder instead of black video player when preview is unavailable.
+- **Mock Client**: Enhanced `Airalogy` client with session management, file upload, and record CRUD operations.
+
+### Fixed
+- **Import Error**: Fixed `AiralogyMockClient` vs `Airalogy` name mismatch that prevented model.py loading.
+- **Value Reset**: Session values now persist across content refreshes in Record Mode.
+
 ## [0.3.2] - 2025-12-25
 
 ### Fixed
