@@ -2,6 +2,12 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.3.2] - 2025-12-25
+
+### Fixed
+- **Missing Dependencies**: Implemented extension host bundling with `esbuild`. This fixes the "Cannot find module 'unified'" error when installing from the marketplace on clean environments.
+- **Packaging Configuration**: Included bundled files and optimized `.vscodeignore` to ensure all runtime requirements are packed into the `.vsix`.
+
 ## [0.3.1] - 2025-12-25
 
 ### Added

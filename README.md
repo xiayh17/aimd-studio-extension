@@ -36,9 +36,15 @@ This extension contributes the following settings:
 ## Requirements
 
 * VS Code version 1.74.0 or higher.
-* Python 3.8+ (for backend features, optional).
+* Python 3.8+ (Optional: The extension bundles pre-compiled binaries for Win/Mac/Linux, but a local Python installation can be used for development).
 
 ## Release Notes
+
+### 0.3.2
+
+Bug fixes and packaging improvements:
+- **Dependency Bundling**: Fixed missing runtime dependencies (e.g., `unified`) in packaged extension using `esbuild`.
+- **Improved Reliability**: Resolved "Cannot find module" errors on fresh installations.
 
 ### 0.3.1
 

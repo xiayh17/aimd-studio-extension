@@ -100,7 +100,7 @@ npx ovsx create-namespace yonghe -p YOUR_OVSX_PAT
 ## 发布内容
 
 发布包含：
-- 扩展核心代码
+- 扩展核心代码 (经过 `esbuild` 打包，包含所有运行时依赖)
 - 多平台 Python 后端二进制
   - `aimd-server-win32-x64.exe`
   - `aimd-server-darwin-arm64`
