@@ -27,3 +27,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Local/Archive folders
+archive/
+learn_ref/
