@@ -2,6 +2,14 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.4.1] - 2025-12-26
+
+### Fixed
+- **Binary Build**: Fixed missing `airalogy` SDK in compiled binaries that caused "Mock client not available" and "name 'Airalogy' is not defined" errors on Windows.
+
+### Added
+- **Version Endpoint**: New `version` method in backend returns server version, airalogy SDK version, and feature flags for debugging.
+
 ## [0.4.0] - 2025-12-26
 
 ### Added

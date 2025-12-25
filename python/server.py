@@ -5,6 +5,9 @@ import importlib.util
 from datetime import datetime
 from typing import Any, Dict, Optional, Type
 
+# Version info
+AIMD_SERVER_VERSION = "0.4.1"
+
 # Try to import airalogy SDK components
 try:
     from airalogy.assigner import DefaultAssigner
@@ -349,7 +352,25 @@ def handle_request(method: str, params: Optional[Dict[str, Any]] = None) -> Any:
     """Route JSON-RPC method calls to handler functions."""
     params = params or {}
     
-    if method == "hello":
+    if method == "version":
+        # Get airalogy SDK version if available
+        airalogy_version = None
+        try:
+            import airalogy
+            airalogy_version = getattr(airalogy, '__version__', 'unknown')
+        except ImportError:
+            pass
+        
+        return {
+            "server_version": AIMD_SERVER_VERSION,
+            "airalogy_sdk_version": airalogy_version,
+            "has_airalogy": HAS_AIRALOGY,
+            "has_mock": HAS_MOCK,
+            "python_version": sys.version,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    elif method == "hello":
         name = params.get("name", "World")
         return {
             "message": f"Hello, {name}! 🐍 Backend enhanced.",

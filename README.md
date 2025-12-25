@@ -40,6 +40,12 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.4.1
+
+Bug fixes for Windows binary:
+- **airalogy SDK**: Fixed missing SDK in compiled binaries causing Record mode errors.
+- **Version Endpoint**: Added backend version info for debugging.
+
 ### 0.3.2
 
 Bug fixes and packaging improvements:
