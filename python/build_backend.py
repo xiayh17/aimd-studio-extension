@@ -59,8 +59,8 @@ def build():
     else:
         output_name = f"aimd-server-{plat}-{arch}"
     
-    print(f"🔧 Building for: {plat}-{arch}")
-    print(f"📦 Output: bin/{output_name}")
+    print(f"[BUILD] Building for: {plat}-{arch}")
+    print(f"[BUILD] Output: bin/{output_name}")
     
     # Ensure bin directory exists
     bin_dir.mkdir(exist_ok=True)
@@ -78,23 +78,23 @@ def build():
         str(server_py)
     ]
     
-    print(f"🚀 Running: {' '.join(cmd)}")
+    print(f"[BUILD] Running: {' '.join(cmd)}")
     
     try:
         subprocess.run(cmd, check=True)
-        print(f"✅ Build successful: {bin_dir / output_name}")
+        print(f"[OK] Build successful: {bin_dir / output_name}")
         
         # Cleanup build artifacts
         build_dir = script_dir / "build"
         if build_dir.exists():
             shutil.rmtree(build_dir)
-            print("🧹 Cleaned up build artifacts")
+            print("[OK] Cleaned up build artifacts")
             
     except subprocess.CalledProcessError as e:
-        print(f"❌ Build failed: {e}")
+        print(f"[ERROR] Build failed: {e}")
         sys.exit(1)
     except FileNotFoundError:
-        print("❌ PyInstaller not found. Install with: pip install pyinstaller")
+        print("[ERROR] PyInstaller not found. Install with: pip install pyinstaller")
         sys.exit(1)
 
 
