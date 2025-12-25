@@ -12,6 +12,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -20,7 +21,7 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
-          - os: macos-13
+          - os: macos-15
             platform: darwin
             arch: x64
           - os: ubuntu-latest
@@ -44,8 +45,14 @@ jobs:
       - name: Build binary
         run: python python/build_backend.py
 
-      - name: List binaries
+      - name: List binaries (Unix)
+        if: runner.os != 'Windows'
         run: ls -la bin/
+
+      - name: List binaries (Windows)
+        if: runner.os == 'Windows'
+        run: dir bin
+        shell: cmd
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

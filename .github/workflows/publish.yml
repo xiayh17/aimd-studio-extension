@@ -13,6 +13,7 @@ jobs:
   # First, build binaries for all platforms
   build-binaries:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -21,7 +22,7 @@ jobs:
           - os: macos-latest
             platform: darwin
             arch: arm64
-          - os: macos-13
+          - os: macos-15
             platform: darwin
             arch: x64
           - os: ubuntu-latest
