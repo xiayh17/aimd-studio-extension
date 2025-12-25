@@ -58,20 +58,42 @@ export class AimdBackend {
     /**
      * Get the path to the Python executable or compiled binary
      */
-    private getBackendCommand(): { command: string; args: string[] } {
-        // For development: use Python source directly
+    private getBackendCommand(): { command: string; args: string[]; cwd: string } {
+        // Detect platform and architecture
+        const platform = process.platform;  // 'darwin', 'win32', 'linux'
+        const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+
+        // Binary name based on platform
+        const binaryName = platform === 'win32'
+            ? `aimd-server-${platform}-${arch}.exe`
+            : `aimd-server-${platform}-${arch}`;
+
+        const binaryPath = path.join(this.extensionPath, 'bin', binaryName);
+
+        // Check if compiled binary exists (production mode)
+        const fs = require('fs');
+        if (fs.existsSync(binaryPath)) {
+            this.outputChannel.appendLine(`Using compiled binary: ${binaryPath}`);
+            return {
+                command: binaryPath,
+                args: [],
+                cwd: path.join(this.extensionPath, 'bin')
+            };
+        }
+
+        // Fall back to Python source (development mode)
+        this.outputChannel.appendLine('Binary not found, falling back to Python source');
         const pythonScript = path.join(this.extensionPath, 'python', 'server.py');
 
         // Try to find Python executable
-        // Priority: python3 > python
-        const pythonCommands = process.platform === 'win32'
+        const pythonCommands = platform === 'win32'
             ? ['python', 'python3', 'py']
             : ['python3', 'python'];
 
-        // For now, use the first available (in production, we'd use compiled binary)
         return {
             command: pythonCommands[0],
-            args: [pythonScript]
+            args: [pythonScript],
+            cwd: path.join(this.extensionPath, 'python')
         };
     }
 
@@ -84,17 +106,18 @@ export class AimdBackend {
             return;
         }
 
-        const { command, args } = this.getBackendCommand();
+        const { command, args, cwd } = this.getBackendCommand();
+        const isProduction = args.length === 0;  // Binary mode has no args
 
         this.outputChannel.appendLine(`Starting backend: ${command} ${args.join(' ')}`);
 
         try {
             this.process = cp.spawn(command, args, {
-                cwd: path.join(this.extensionPath, 'python'),
+                cwd,
                 env: {
                     ...process.env,
                     PYTHONUNBUFFERED: '1',  // Ensure immediate output
-                    AIMD_MODE: 'development'
+                    AIMD_MODE: isProduction ? 'production' : 'development'
                 },
                 stdio: ['pipe', 'pipe', 'pipe']
             });
