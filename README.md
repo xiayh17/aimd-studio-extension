@@ -42,6 +42,11 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.4.3
+
+**Critical Fix**:
+- **Missing Module in Package**: Included `airalogy_mock` directory in the extension package. This resolves the backend crash when switching to System Python ("airalogy_mock not found" / "NoneType object is not callable").
+
 ### 0.4.2
 
 Features and improvements:

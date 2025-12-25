@@ -4,7 +4,7 @@
   "displayName": "AIMD Studio",
   "description": "A VS Code extension for editing and previewing AIMD protocol files",
   "icon": "resources/icon.png",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "engines": {
     "vscode": "^1.74.0"
   },

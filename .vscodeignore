@@ -6,7 +6,6 @@ learn_ref/**
 simple_example/**
 complex_example/**
 aimd_studio/**
-airalogy_mock/**
 src/**
 python/build_backend.py
 python/build/**

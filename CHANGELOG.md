@@ -2,6 +2,11 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.4.3] - 2025-12-26
+
+### Fixed
+- **Missing Module**: Included `airalogy_mock` directory in the extension package. This fixes the issue where switching to System Python would cause "airalogy_mock not found" and backend crashes.
+
 ## [0.4.2] - 2025-12-26
 
 ### Added

@@ -104,7 +104,7 @@ class ProjectManager:
             os.environ["AIRALOGY_STORAGE_DIR"] = storage_dir
             
             # Only recreate client if path changed or not exists, to preserve active sessions
-            if not self.mock_client or self.current_project_path != project_path:
+            if (not self.mock_client or self.current_project_path != project_path) and HAS_MOCK and Airalogy:
                 self.mock_client = Airalogy(storage_dir=storage_dir)
             
             # Reset overrides on project reload
