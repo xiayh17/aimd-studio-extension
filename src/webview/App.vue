@@ -265,10 +265,21 @@ function initializeInteractions() {
       const fieldName = e.detail?.fieldName || e.detail;
       if (fieldName) {
         console.log('[AIMD Webview] Trigger assigner for:', fieldName);
-        // Send to extension to call backend
+        
+        // Collect all session values to pass to backend
+        const sessionData: Record<string, any> = {};
+        sessionValues.value.forEach((data, varId) => {
+          // Extract just the value, not the preview URL
+          sessionData[varId] = typeof data === 'string' ? data : data.value;
+        });
+        
+        console.log('[AIMD Webview] Session data for assigner:', sessionData);
+        
+        // Send to extension to call backend with session data
         vscode.postMessage({ 
           type: 'trigger-assigner', 
-          fieldName: fieldName 
+          fieldName: fieldName,
+          sessionData: sessionData
         });
       }
     });

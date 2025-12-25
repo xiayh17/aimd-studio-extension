@@ -2,10 +2,23 @@
   <div class="var-markdown-preview" @click="handleClick">
     <div class="markdown-header">
       <span class="header-label">MARKDOWN</span>
-      <button class="action-btn" @click="handleEditSource" title="Edit Source">
-        <i class="codicon codicon-edit"></i>
-        Source
-      </button>
+      <div class="header-actions">
+        <!-- Manual Assigner Trigger Button -->
+        <button 
+          v-if="hasManualAssigner" 
+          class="action-btn trigger-btn" 
+          @click.stop="handleTrigger" 
+          :title="`手动计算${parsedDeps.length > 0 ? ' (依赖: ' + parsedDeps.join(', ') + ')' : ''}`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+        <button class="action-btn" @click="handleEditSource" title="Edit Source">
+          <i class="codicon codicon-edit"></i>
+          Source
+        </button>
+      </div>
     </div>
     
     <div class="markdown-body" v-if="displayHtml" v-html="displayHtml"></div>
@@ -26,6 +39,10 @@ const props = defineProps<{
   defaultValue?: string;
   calculatedValue?: string;
   renderedHtml?: string;
+  // Assigner support
+  assignerMode?: string;
+  assignerReadonly?: string;
+  assignerDeps?: string; // JSON array of dependent field names
 }>();
 
 const vscode = (window as any).vscode;
@@ -75,6 +92,37 @@ const handleClick = (e: MouseEvent) => {
     }
   }
 };
+
+// Check if this field has a manual assigner mode
+const hasManualAssigner = computed(() => {
+  return props.assignerMode === 'manual' || 
+         props.assignerMode === 'auto_first' || 
+         props.assignerMode === 'manual_readonly';
+});
+
+// Parse dependent fields from JSON prop
+const parsedDeps = computed(() => {
+  if (!props.assignerDeps) return [];
+  try {
+    const result = JSON.parse(props.assignerDeps);
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+});
+
+// Handle manual trigger - dispatch CustomEvent for parent to catch
+function handleTrigger() {
+  const event = new CustomEvent('trigger-assigner', {
+    bubbles: true,
+    composed: true,
+    detail: { fieldName: props.name }
+  });
+  const hostElement = document.querySelector(`var-markdown-preview[name="${props.name}"]`);
+  if (hostElement) {
+    hostElement.dispatchEvent(event);
+  }
+}
 </script>
 
 <style scoped>
@@ -93,6 +141,24 @@ const handleClick = (e: MouseEvent) => {
   padding: 4px 8px;
   border-bottom: 1px solid var(--vscode-widget-border);
   background: var(--vscode-editor-lineHighlightBackground);
+}
+
+.header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.trigger-btn {
+  background: none;
+  border: 1px solid var(--vscode-textLink-foreground);
+  color: var(--vscode-textLink-foreground);
+  padding: 2px 6px;
+}
+
+.trigger-btn:hover {
+  background: var(--vscode-textLink-foreground);
+  color: var(--vscode-button-foreground);
 }
 
 .header-label {

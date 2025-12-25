@@ -93,6 +93,13 @@ export async function handleVariableUpdate(
  */
 async function updateModelVariable(projectDir: string, varName: string, newValue: string): Promise<boolean> {
     const modelPath = path.join(projectDir, 'model.py');
+
+    // Tolerate missing model.py - some AIMD files are standalone
+    if (!fs.existsSync(modelPath)) {
+        console.log('[AIMD] model.py not found, skipping variable update');
+        return false;
+    }
+
     try {
         const document = await vscode.workspace.openTextDocument(modelPath);
         const text = document.getText();

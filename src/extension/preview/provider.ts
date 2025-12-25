@@ -108,8 +108,8 @@ export class VuePreviewProvider {
                 vscode.window.showErrorMessage(`Preview error: ${message.error}`);
                 break;
             case 'trigger-assigner':
-                // Handle manual assigner trigger from webview
-                this.handleTriggerAssigner(panel, uri, message.fieldName);
+                // Handle manual assigner trigger from webview (with session data)
+                this.handleTriggerAssigner(panel, uri, message.fieldName, message.sessionData);
                 break;
             // Native Bridge Navigation
             case 'nav:open-resource':
@@ -178,7 +178,8 @@ export class VuePreviewProvider {
     private static async handleTriggerAssigner(
         panel: vscode.WebviewPanel,
         uri: vscode.Uri,
-        fieldName: string
+        fieldName: string,
+        sessionData?: Record<string, any>
     ): Promise<void> {
         if (!this.backend || !fieldName) {
             console.log('[AIMD Debug] No backend or fieldName for trigger');
@@ -187,13 +188,14 @@ export class VuePreviewProvider {
 
         try {
             console.log('[AIMD Debug] Triggering assigner:', fieldName);
+            console.log('[AIMD Debug] Session data received:', sessionData ? Object.keys(sessionData) : 'none');
 
             // Get current variable values (we need to pass data to the assigner)
             const projectDir = path.dirname(uri.fsPath);
             await this.backend.loadProject(projectDir);
             const variablesMetadata = await this.backend.getVariables();
 
-            // Build data from current values
+            // Build initial data from default values
             const currentData: Record<string, any> = {};
             for (const [name, meta] of Object.entries(variablesMetadata)) {
                 if (meta.default_value !== undefined) {
@@ -203,13 +205,29 @@ export class VuePreviewProvider {
                 }
             }
 
-            // Trigger the specific assigner
+            // CRITICAL: Merge session values (uploaded files, user inputs in Record Mode)
+            if (sessionData) {
+                Object.assign(currentData, sessionData);
+                console.log('[AIMD Debug] Merged session data, currentData keys:', Object.keys(currentData));
+            }
+
+            // Get existing calculated values FIRST (to preserve other fields' calculations)
+            const existingCalcResult = await this.backend.calculate(currentData);
+            const existingCalcFields = existingCalcResult.calculated_fields || {};
+            console.log('[AIMD Debug] Existing calculated fields:', Object.keys(existingCalcFields));
+
+            // Merge existing calculated values into currentData for accurate dependency resolution
+            Object.assign(currentData, existingCalcFields);
+
+            // Trigger the specific assigner with up-to-date data
             const result = await this.backend.triggerAssigner(fieldName, currentData);
 
             if (result.success) {
                 console.log('[AIMD Debug] Assigner triggered successfully:', result.calculated_fields);
-                // Refresh the preview to show new values, passing the manually calculated fields
-                this.sendContent(panel, uri, result.calculated_fields);
+                // Merge: preserve existing calculated + override with newly triggered fields
+                const mergedFields = { ...existingCalcFields, ...result.calculated_fields };
+                // Refresh the preview to show new values, passing the merged calculated fields
+                this.sendContent(panel, uri, mergedFields);
             } else {
                 console.error('[AIMD Debug] Assigner trigger failed:', result.error);
                 vscode.window.showWarningMessage(`Assigner failed: ${result.error}`);

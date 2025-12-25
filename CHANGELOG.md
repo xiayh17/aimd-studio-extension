@@ -2,6 +2,18 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.4.2] - 2025-12-26
+
+### Added
+- **Python Environment Selection**: New UI to switch between "bundled" and "system" Python environments directly from VS Code status bar.
+- **Dependency Checks**: Automatic detection of missing `airalogy` dependency when switching to System Python.
+- **Auto-Installation**: One-click installation of `airalogy` from GitHub source when detected missing.
+- **Session Persistence**: Automatic backup and restoration of active session state to prevent data loss (e.g. uploaded files) when backend restarts.
+
+### Fixed
+- **File Upload State**: Active file uploads now survive environment switching and backend restarts.
+- **Silent Failures**: Backend now explicitly prompts for restart when environment changes are detected.
+
 ## [0.4.1] - 2025-12-26
 
 ### Fixed
@@ -102,9 +114,9 @@ All notable changes to the "aimd-studio" extension will be documented in this fi
 ## [0.1.0] - 2025-12-23
 
 ### Added
-- Initial release of AIMD Studio.
+- **Initial release of AIMD Studio**.
 - Core language support for `.aimd` files (syntax highlighting, grammar).
 - **ProFlow-inspired Timeline Preview**: A high-fidelity, interactive visualization tool for protocol files.
 - **Experimental Renderer**: Toggleable advanced UI with card-based layouts and step navigation.
-- Status bar integration for quick access to preview functionality.
-- Customization options for status bar appearance (icon, text, priority).
+- **Status Bar Integration**: Quick access to preview functionality.
+- **Customization Options**: Configurable status bar icon, text, and priority.

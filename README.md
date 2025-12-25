@@ -32,6 +32,8 @@ This extension contributes the following settings:
 * `aimd.preview.buttonText`: Customize the status bar button text.
 * `aimd.preview.buttonIcon`: Change the status bar icon (uses VS Code Codicons).
 * `aimd.preview.buttonPriority`: Adjust the position of the status bar button.
+* `aimd.pythonMode`: Switch between **bundled** (pre-compiled) and **system** Python environments.
+* `aimd.systemPythonPath`: Path to the system Python executable (auto-synced with Python extension).
 
 ## Requirements
 
@@ -39,6 +41,13 @@ This extension contributes the following settings:
 * Python 3.8+ (Optional: The extension bundles pre-compiled binaries for Win/Mac/Linux, but a local Python installation can be used for development).
 
 ## Release Notes
+
+### 0.4.2
+
+Features and improvements:
+- **Environment Management**: Seamless switching between Bundled and System Python.
+- **Dependency Handling**: Automatic check and install prompts for `airalogy` package.
+- **Session Persistence**: Active sessions now survive backend restarts and environment switches.
 
 ### 0.4.1
 

@@ -304,8 +304,12 @@ class Airalogy:
             "airalogy.id.lab.mock.project.dev.protocol.test.v.0.0.1"
         )
         
-        # 本地存储目录
-        self.storage_dir = Path(storage_dir or ".airalogy_mock")
+        # 本地存储目录 - 优先使用参数，然后环境变量，最后默认值
+        self.storage_dir = Path(
+            storage_dir or 
+            os.environ.get("AIRALOGY_STORAGE_DIR") or 
+            ".airalogy_mock"
+        )
         self.files_dir = self.storage_dir / "files"
         self.records_dir = self.storage_dir / "records"
         
@@ -318,6 +322,41 @@ class Airalogy:
         
         # 当前活跃的 Record Session
         self._active_session: Optional[RecordSession] = None
+        self._active_session_file = self.storage_dir / "active_session.id"
+        
+        # 尝试恢复活跃会话
+        self._restore_active_session()
+
+    def _restore_active_session(self):
+        """尝试从磁盘恢复活跃会话"""
+        if self._active_session_file.exists():
+            try:
+                record_id = self._active_session_file.read_text().strip()
+                if record_id:
+                    # 尝试加载
+                    try:
+                        self.load_record_session(record_id)
+                        # print(f"Restored active session: {record_id}")
+                    except Exception:
+                        # 加载失败（可能被删除了），清除标记
+                        self._clear_active_session_file()
+            except Exception:
+                pass
+
+    def _save_active_session_id(self, record_id: str):
+        """保存活跃会话 ID"""
+        try:
+            self._active_session_file.write_text(record_id)
+        except Exception:
+            pass
+
+    def _clear_active_session_file(self):
+        """清除活跃会话标记"""
+        try:
+            if self._active_session_file.exists():
+                self._active_session_file.unlink()
+        except Exception:
+            pass
     
     # ========================================================
     # Record Session 管理
@@ -332,15 +371,6 @@ class Airalogy:
     ) -> RecordSession:
         """
         启动 Record 模式，创建新的记录会话
-        
-        Args:
-            protocol_id: 协议 ID
-            lab_id: 实验室 ID
-            project_id: 项目 ID
-            protocol_version: 协议版本
-        
-        Returns:
-            RecordSession 实例
         """
         self._active_session = RecordSession(
             client=self,
@@ -349,19 +379,19 @@ class Airalogy:
             project_id=project_id,
             protocol_version=protocol_version,
         )
+        
+        # 立即保存初始状态，确保重启后能找到
+        self._active_session.save()
+        self._save_active_session_id(self._active_session.airalogy_record_id)
+        
         return self._active_session
     
     def load_record_session(self, record_id: str) -> RecordSession:
         """
         加载已有的 Record 会话
-        
-        Args:
-            record_id: 完整的 airalogy record id
-        
-        Returns:
-            RecordSession 实例
         """
         self._active_session = RecordSession.load(self, record_id)
+        self._save_active_session_id(self._active_session.airalogy_record_id)
         return self._active_session
     
     def get_active_session(self) -> Optional[RecordSession]:
@@ -371,12 +401,6 @@ class Airalogy:
     def end_record_session(self, save: bool = True) -> Optional[str]:
         """
         结束 Record 模式
-        
-        Args:
-            save: 是否保存记录
-        
-        Returns:
-            如果保存，返回 record_id
         """
         if self._active_session is None:
             return None
@@ -386,6 +410,8 @@ class Airalogy:
             record_id = self._active_session.save()
         
         self._active_session = None
+        self._clear_active_session_file()
+        
         return record_id
     
     # ========================================================

@@ -59,39 +59,45 @@ export class AimdBackend {
      * Get the path to the Python executable or compiled binary
      */
     private getBackendCommand(): { command: string; args: string[]; cwd: string } {
+        const config = vscode.workspace.getConfiguration('aimd');
+        const mode = config.get<string>('pythonMode');
+        const systemPath = config.get<string>('systemPythonPath') || 'python3';
+
         // Detect platform and architecture
         const platform = process.platform;  // 'darwin', 'win32', 'linux'
         const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
 
-        // Binary name based on platform
-        const binaryName = platform === 'win32'
-            ? `aimd-server-${platform}-${arch}.exe`
-            : `aimd-server-${platform}-${arch}`;
+        // 1. Bundled Mode (default)
+        if (mode === 'bundled') {
+            // Binary name based on platform
+            const binaryName = platform === 'win32'
+                ? `aimd-server-${platform}-${arch}.exe`
+                : `aimd-server-${platform}-${arch}`;
 
-        const binaryPath = path.join(this.extensionPath, 'bin', binaryName);
+            const binaryPath = path.join(this.extensionPath, 'bin', binaryName);
 
-        // Check if compiled binary exists (production mode)
-        const fs = require('fs');
-        if (fs.existsSync(binaryPath)) {
-            this.outputChannel.appendLine(`Using compiled binary: ${binaryPath}`);
-            return {
-                command: binaryPath,
-                args: [],
-                cwd: path.join(this.extensionPath, 'bin')
-            };
+            // Check if compiled binary exists
+            const fs = require('fs');
+            if (fs.existsSync(binaryPath)) {
+                this.outputChannel.appendLine(`Using bundled binary: ${binaryPath}`);
+                return {
+                    command: binaryPath,
+                    args: [],
+                    cwd: path.join(this.extensionPath, 'bin')
+                };
+            } else {
+                this.outputChannel.appendLine('Bundled binary not found, falling back to Python source');
+            }
+        } else {
+            this.outputChannel.appendLine(`Using system Python mode: ${systemPath}`);
         }
 
-        // Fall back to Python source (development mode)
-        this.outputChannel.appendLine('Binary not found, falling back to Python source');
+        // 2. Python Source Mode (Development or System Fallback)
         const pythonScript = path.join(this.extensionPath, 'python', 'server.py');
-
-        // Try to find Python executable
-        const pythonCommands = platform === 'win32'
-            ? ['python', 'python3', 'py']
-            : ['python3', 'python'];
+        const pythonCommand = mode === 'system' ? systemPath : (platform === 'win32' ? 'python' : 'python3');
 
         return {
-            command: pythonCommands[0],
+            command: pythonCommand,
             args: [pythonScript],
             cwd: path.join(this.extensionPath, 'python')
         };
@@ -162,6 +168,19 @@ export class AimdBackend {
             this.outputChannel.appendLine(`Failed to start backend: ${message}`);
             throw error;
         }
+    }
+
+    /**
+     * Restart the backend process
+     */
+    async restart(): Promise<void> {
+        this.outputChannel.appendLine('Restarting backend...');
+        await this.stop();
+        this.isReady = false;
+        this.readyPromise = new Promise((resolve) => {
+            this.readyResolve = resolve;
+        });
+        await this.start();
     }
 
     /**

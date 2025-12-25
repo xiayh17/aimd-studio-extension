@@ -13,6 +13,17 @@
         <span class="file-name" :title="displayValue">{{ fileName }}</span>
       </div>
       <div class="actions">
+        <!-- Manual Assigner Trigger Button -->
+        <button 
+          v-if="hasManualAssigner" 
+          class="action-btn assigner-trigger" 
+          @click="handleTrigger" 
+          :title="`手动计算${parsedDeps.length > 0 ? ' (依赖: ' + parsedDeps.join(', ') + ')' : ''}`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
         <button class="action-btn" @click="handleOpen" title="Open File">
           <i class="codicon codicon-eye"></i>
         </button>
@@ -24,10 +35,11 @@
 
     <!-- Content -->
     <div class="file-content" v-if="hasFile">
-      <!-- Preview (Image/Video) - Only show if we have actual preview data -->
+      <!-- Preview (Image/Video/Audio) - Only show if we have actual preview data -->
       <div v-if="isPreviewable && formattedSrc" class="preview-container">
         <img v-if="isImage" :src="formattedSrc" alt="Preview" />
         <video v-if="isVideo" :src="formattedSrc" controls></video>
+        <audio v-if="isAudio" :src="formattedSrc" controls></audio>
       </div>
       
       <!-- Icon Placeholder (Non-previewable OR no preview URL) -->
@@ -48,6 +60,17 @@
             <span class="btn-text">{{ title || 'Upload File' }}</span>
             <span class="type-hint" v-if="!title">{{ displayType }}</span>
         </button>
+        <!-- Manual Assigner Trigger Button (inline when no file) -->
+        <button 
+          v-if="hasManualAssigner" 
+          class="assigner-btn-inline" 
+          @click="handleTrigger" 
+          :title="`手动计算${parsedDeps.length > 0 ? ' (依赖: ' + parsedDeps.join(', ') + ')' : ''}`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
     </div>
   </div>
 </template>
@@ -65,6 +88,10 @@ const props = defineProps<{
   isRecording?: string; // Passed as attribute 'true'/'false'
   sessionValue?: string;
   sessionPreview?: string; // Base64 data URL for preview
+  // Assigner support
+  assignerMode?: string;
+  assignerReadonly?: string;
+  assignerDeps?: string; // JSON array of dependent field names
 }>();
 
 const vscode = (window as any).vscode;
@@ -93,20 +120,36 @@ const displayType = computed(() => {
 const acceptType = computed(() => {
     // Map varType to accept
     const map: Record<string, string> = {
+        // Images
         'FileIdPNG': '.png',
         'FileIdJPG': '.jpg,.jpeg',
         'FileIdJPEG': '.jpg,.jpeg',
-        'FileIdTIFF': '.tiff',
-        'FileIdPDF': '.pdf',
-        'FileIdCSV': '.csv',
+        'FileIdTIFF': '.tiff,.tif',
+        'FileIdSVG': '.svg',
+        'FileIdWEBP': '.webp',
+        // Video/Audio
         'FileIdMP4': '.mp4',
+        'FileIdMP3': '.mp3',
+        // Documents
+        'FileIdPDF': '.pdf',
+        'FileIdDOCX': '.docx',
+        'FileIdXLSX': '.xlsx',
+        'FileIdPPTX': '.pptx',
+        // Data/Text
+        'FileIdCSV': '.csv',
+        'FileIdJSON': '.json',
+        'FileIdMD': '.md',
+        'FileIdTXT': '.txt',
+        'FileIdAIMD': '.aimd',
     };
     return map[props.varType] || '*/*';
 });
 
 const isImage = computed(() => {
     const ext = fileName.value.toLowerCase();
-    return ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.gif');
+    return ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || 
+           ext.endsWith('.gif') || ext.endsWith('.svg') || ext.endsWith('.webp') ||
+           ext.endsWith('.tiff') || ext.endsWith('.tif');
 });
 
 const isVideo = computed(() => {
@@ -114,7 +157,12 @@ const isVideo = computed(() => {
     return ext.endsWith('.mp4') || ext.endsWith('.webm');
 });
 
-const isPreviewable = computed(() => isImage.value || isVideo.value);
+const isAudio = computed(() => {
+    const ext = fileName.value.toLowerCase();
+    return ext.endsWith('.mp3') || ext.endsWith('.wav') || ext.endsWith('.ogg');
+});
+
+const isPreviewable = computed(() => isImage.value || isVideo.value || isAudio.value);
 
 const formattedSrc = computed(() => {
     // If sessionPreview is available (base64 data URL from upload), use it
@@ -192,6 +240,37 @@ const handleDrop = (e: DragEvent) => {
         }
     }
 };
+
+// Check if this field has a manual assigner mode
+const hasManualAssigner = computed(() => {
+  return props.assignerMode === 'manual' || 
+         props.assignerMode === 'auto_first' || 
+         props.assignerMode === 'manual_readonly';
+});
+
+// Parse dependent fields from JSON prop
+const parsedDeps = computed(() => {
+  if (!props.assignerDeps) return [];
+  try {
+    const result = JSON.parse(props.assignerDeps);
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+});
+
+// Handle manual trigger - dispatch CustomEvent for parent to catch
+function handleTrigger() {
+  const event = new CustomEvent('trigger-assigner', {
+    bubbles: true,
+    composed: true,
+    detail: { fieldName: props.name }
+  });
+  const hostElement = document.querySelector(`var-file-card[name="${props.name}"]`);
+  if (hostElement) {
+    hostElement.dispatchEvent(event);
+  }
+}
 </script>
 
 <style scoped>
@@ -359,5 +438,43 @@ const handleDrop = (e: DragEvent) => {
     font-size: 11px;
     opacity: 0.7;
     margin-left: 4px;
+}
+
+/* Assigner Trigger Button (in header) */
+.action-btn.assigner-trigger {
+    color: var(--vscode-textLink-foreground);
+}
+
+.action-btn.assigner-trigger:hover {
+    background-color: var(--vscode-textLink-foreground);
+    color: var(--vscode-button-foreground);
+}
+
+/* Assigner Button Inline (next to upload button) */
+.assigner-btn-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 8px;
+    padding: 0;
+    background: var(--vscode-button-secondaryBackground);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--vscode-textLink-foreground);
+    transition: all 0.15s ease;
+}
+
+.assigner-btn-inline:hover {
+    background: var(--vscode-textLink-foreground);
+    border-color: var(--vscode-textLink-foreground);
+    color: var(--vscode-button-foreground);
+}
+
+.assigner-btn-inline svg {
+    width: 14px;
+    height: 14px;
 }
 </style>

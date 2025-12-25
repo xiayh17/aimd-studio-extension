@@ -4,7 +4,7 @@
   "displayName": "AIMD Studio",
   "description": "A VS Code extension for editing and previewing AIMD protocol files",
   "icon": "resources/icon.png",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -155,6 +155,24 @@
           "type": "boolean",
           "default": true,
           "description": "Use Vue-based preview renderer (recommended for better performance)"
+        },
+        "aimd.pythonMode": {
+          "type": "string",
+          "default": "bundled",
+          "description": "Python environment mode",
+          "enum": [
+            "bundled",
+            "system"
+          ],
+          "enumDescriptions": [
+            "Use the bundled Python environment (recommended)",
+            "Use the system Python environment (requires manual dependency management)"
+          ]
+        },
+        "aimd.systemPythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to the system Python executable (used when mode is 'system')"
         }
       }
     }

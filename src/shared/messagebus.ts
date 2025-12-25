@@ -131,14 +131,30 @@ export interface WebviewMessage<T = unknown> {
 // ============================================================
 
 export const AIRALOGY_TYPE_COMPONENT_MAP: Record<string, string> = {
-    // File upload types (managed by VarFileCard)
+    // Image file types
     'FileIdPNG': 'var-file-card',
     'FileIdJPG': 'var-file-card',
     'FileIdJPEG': 'var-file-card',
     'FileIdTIFF': 'var-file-card',
-    'FileIdPDF': 'var-file-card',
-    'FileIdCSV': 'var-file-card',
+    'FileIdSVG': 'var-file-card',
+    'FileIdWEBP': 'var-file-card',
+
+    // Video/Audio file types
     'FileIdMP4': 'var-file-card',
+    'FileIdMP3': 'var-file-card',
+
+    // Document file types
+    'FileIdPDF': 'var-file-card',
+    'FileIdDOCX': 'var-file-card',
+    'FileIdXLSX': 'var-file-card',
+    'FileIdPPTX': 'var-file-card',
+
+    // Data/Text file types
+    'FileIdCSV': 'var-file-card',
+    'FileIdJSON': 'var-file-card',
+    'FileIdMD': 'var-file-card',
+    'FileIdTXT': 'var-file-card',
+    'FileIdAIMD': 'var-file-card',
 
     // Code editor types (managed by VarCodeBlock)
     'PyStr': 'var-code-block',
@@ -151,8 +167,11 @@ export const AIRALOGY_TYPE_COMPONENT_MAP: Record<string, string> = {
     // Record selector
     'RecordId': 'var-record-selector',
 
-    // Secret input
+    // Special types
     'IgnoreStr': 'var-input',
+    'UserName': 'var-input',
+    'CurrentTime': 'var-input',
+    'Recommended': 'var-input',
 };
 
 /**
@@ -167,13 +186,27 @@ export function getComponentForType(varType: string): string {
  */
 export function getAcceptForFileType(varType: string): string {
     const acceptMap: Record<string, string> = {
+        // Images
         'FileIdPNG': 'image/png',
         'FileIdJPG': 'image/jpeg',
         'FileIdJPEG': 'image/jpeg',
         'FileIdTIFF': 'image/tiff',
-        'FileIdPDF': 'application/pdf',
-        'FileIdCSV': 'text/csv,.csv',
+        'FileIdSVG': 'image/svg+xml',
+        'FileIdWEBP': 'image/webp',
+        // Video/Audio
         'FileIdMP4': 'video/mp4',
+        'FileIdMP3': 'audio/mpeg',
+        // Documents
+        'FileIdPDF': 'application/pdf',
+        'FileIdDOCX': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx',
+        'FileIdXLSX': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx',
+        'FileIdPPTX': 'application/vnd.openxmlformats-officedocument.presentationml.presentation,.pptx',
+        // Data/Text
+        'FileIdCSV': 'text/csv,.csv',
+        'FileIdJSON': 'application/json,.json',
+        'FileIdMD': 'text/markdown,.md',
+        'FileIdTXT': 'text/plain,.txt',
+        'FileIdAIMD': '.aimd',
     };
     return acceptMap[varType] || '*/*';
 }

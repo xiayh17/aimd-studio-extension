@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { VuePreviewProvider } from './preview/provider';
 import { AimdBackend } from './backend/backend';
 import { MemFS } from './providers/FileSystemProvider';
+import { PythonEnvironmentManager } from './services/PythonEnvironmentManager';
 
 let statusBarItem: vscode.StatusBarItem;
 let aimdBackend: AimdBackend | null = null;
@@ -80,6 +81,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize Vue Preview Provider
     VuePreviewProvider.initialize(context, aimdBackend);
 
+    // Initialize Python Environment Manager
+    const pythonEnvManager = new PythonEnvironmentManager();
+    pythonEnvManager.registerCommands(context);
+
     const initialConfig = getConfig();
 
     // 创建状态栏按钮
@@ -153,6 +158,18 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Register restart backend command
+    const restartBackendCommand = vscode.commands.registerCommand('aimd.restartBackend', async () => {
+        if (aimdBackend) {
+            try {
+                await aimdBackend.restart();
+                vscode.window.showInformationMessage('AIMD Backend restarted successfully');
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to restart backend: ${(error as Error).message}`);
+            }
+        }
+    });
+
     // 监听编辑器变化
     const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(editor => {
         updateStatusBar(editor);
@@ -175,6 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(previewCommand);
     context.subscriptions.push(previewToSideCommand);
     context.subscriptions.push(helloBackendCommand);
+    context.subscriptions.push(restartBackendCommand);
     context.subscriptions.push(editorChangeDisposable);
     context.subscriptions.push(documentOpenDisposable);
     context.subscriptions.push(documentWatcher);

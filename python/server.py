@@ -8,6 +8,16 @@ from typing import Any, Dict, Optional, Type
 # Version info
 AIMD_SERVER_VERSION = "0.4.1"
 
+# Set default Airalogy environment variables if not set
+# This allows assigner.py to load Airalogy client without manual configuration
+# Real operations will use mock client; these are just placeholders for initialization
+if not os.environ.get("AIRALOGY_ENDPOINT"):
+    os.environ["AIRALOGY_ENDPOINT"] = "http://localhost:8765"
+if not os.environ.get("AIRALOGY_API_KEY"):
+    os.environ["AIRALOGY_API_KEY"] = "mock-api-key"
+if not os.environ.get("AIRALOGY_PROTOCOL_ID"):
+    os.environ["AIRALOGY_PROTOCOL_ID"] = "mock-protocol-id"
+
 # Try to import airalogy SDK components
 try:
     from airalogy.assigner import DefaultAssigner
@@ -21,10 +31,25 @@ except ImportError:
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from airalogy_mock.client import Airalogy
+    from airalogy_mock.client import Airalogy as MockAiralogy
     HAS_MOCK = True
+    
+    # Monkey-patch the real airalogy SDK to use our mock client
+    # This allows assigner.py's `from airalogy import Airalogy` to get our local storage version
+    try:
+        import airalogy
+        import airalogy.airalogy
+        airalogy.Airalogy = MockAiralogy
+        airalogy.airalogy.Airalogy = MockAiralogy
+        print(f"[{datetime.now().isoformat()}] Patched airalogy SDK with mock client", file=sys.stderr, flush=True)
+    except ImportError:
+        pass  # airalogy SDK not installed, mock client still works standalone
 except ImportError:
     HAS_MOCK = False
+    MockAiralogy = None
+
+# Expose MockAiralogy as Airalogy for this module's use
+Airalogy = MockAiralogy
 
 def log_stderr(message: str) -> None:
     """Log to stderr (will be captured by VS Code output channel)."""
@@ -62,22 +87,49 @@ class ProjectManager:
             try:
                 from airalogy.assigner import DefaultAssigner
                 # Reset the assigner registry to avoid duplicate registrations
-                if hasattr(DefaultAssigner, '_assigned_fields'):
-                    DefaultAssigner._assigned_fields.clear()
+                # The registry is stored in assigned_info and dependent_info
+                if hasattr(DefaultAssigner, 'assigned_info'):
+                    DefaultAssigner.assigned_info.clear()
+                if hasattr(DefaultAssigner, 'dependent_info'):
+                    DefaultAssigner.dependent_info.clear()
+                log_stderr("Cleared assigner registry")
             except Exception as e:
                 log_stderr(f"Could not reset assigner registry: {e}")
         
         try:
             # Initialize Mock Client for this project
             storage_dir = os.path.join(project_path, ".airalogy_mock")
-            self.mock_client = Airalogy(storage_dir=storage_dir)
             
-            # Reset overrides on project reload? Maybe yes, to start fresh.
+            # CRITICAL: Set env var so that Airalogy() created in assigner.py uses same storage
+            os.environ["AIRALOGY_STORAGE_DIR"] = storage_dir
+            
+            # Only recreate client if path changed or not exists, to preserve active sessions
+            if not self.mock_client or self.current_project_path != project_path:
+                self.mock_client = Airalogy(storage_dir=storage_dir)
+            
+            # Reset overrides on project reload
             self.overrides = {}
+            
+            # If there is an active session restored by mock client, sync its variables to overrides
+            if self.mock_client:
+                active_session = self.mock_client.get_active_session()
+                if active_session:
+                    session_vars = active_session.get_all_vars()
+                    self.overrides.update(session_vars)
+                    log_stderr(f"Restored {len(session_vars)} variables from active session")
 
-            # Load model.py
-            model_path = os.path.join(project_path, "model.py")
-            if os.path.exists(model_path):
+            # Load model.py (or alternative model files)
+            # Try multiple possible model filenames
+            model_filenames = ["model.py", "tmp_aimd_model.py", "var_model.py"]
+            model_path = None
+            for filename in model_filenames:
+                path_candidate = os.path.join(project_path, filename)
+                if os.path.exists(path_candidate):
+                    model_path = path_candidate
+                    log_stderr(f"Found model file: {filename}")
+                    break
+            
+            if model_path:
                 spec = importlib.util.spec_from_file_location("model", model_path)
                 if spec and spec.loader:
                     model_module = importlib.util.module_from_spec(spec)
@@ -89,13 +141,24 @@ class ProjectManager:
             # Load assigner.py (triggers @assigner decorators)
             assigner_path = os.path.join(project_path, "assigner.py")
             if os.path.exists(assigner_path):
-                spec = importlib.util.spec_from_file_location("assigner", assigner_path)
-                if spec and spec.loader:
-                    assigner_module = importlib.util.module_from_spec(spec)
-                    sys.modules['assigner'] = assigner_module  # Register in sys.modules
-                    spec.loader.exec_module(assigner_module)
-                    self.has_assigners = True
-                    log_stderr("Loaded assigners")
+                try:
+                    spec = importlib.util.spec_from_file_location("assigner", assigner_path)
+                    if spec and spec.loader:
+                        assigner_module = importlib.util.module_from_spec(spec)
+                        sys.modules['assigner'] = assigner_module  # Register in sys.modules
+                        spec.loader.exec_module(assigner_module)
+                        self.has_assigners = True
+                        log_stderr(f"Loaded assigner module, functions: {[n for n in dir(assigner_module) if not n.startswith('_')]}")
+                        
+                        # Check if assigners were registered
+                        if HAS_AIRALOGY:
+                            from airalogy.assigner import DefaultAssigner
+                            all_fields = DefaultAssigner.all_assigned_fields()
+                            log_stderr(f"Registered assigners after load: {list(all_fields.keys())}")
+                except Exception as e:
+                    log_stderr(f"Error loading assigner.py: {e}")
+                    import traceback
+                    log_stderr(traceback.format_exc())
             
             self.current_project_path = project_path
             return True
@@ -296,12 +359,20 @@ class ProjectManager:
 
     def get_assigners_metadata(self) -> Dict[str, Any]:
         """Return metadata about all registered assigners."""
-        if not HAS_AIRALOGY or not self.has_assigners:
+        log_stderr(f"get_assigners_metadata called: HAS_AIRALOGY={HAS_AIRALOGY}, has_assigners={self.has_assigners}")
+        
+        if not HAS_AIRALOGY:
+            log_stderr("Airalogy SDK not available")
+            return {}
+        
+        if not self.has_assigners:
+            log_stderr("No assigner module loaded")
             return {}
         
         try:
             from airalogy.assigner import DefaultAssigner
             all_fields = DefaultAssigner.all_assigned_fields()
+            log_stderr(f"DefaultAssigner.all_assigned_fields() returned {len(all_fields)} fields: {list(all_fields.keys())}")
             
             result = {}
             for field, info in all_fields.items():
@@ -314,6 +385,8 @@ class ProjectManager:
             return result
         except Exception as e:
             log_stderr(f"Error getting assigners: {e}")
+            import traceback
+            log_stderr(traceback.format_exc())
             return {}
 
     def trigger_assigner(self, field_name: str, data: Dict[str, Any]) -> Dict[str, Any]:
