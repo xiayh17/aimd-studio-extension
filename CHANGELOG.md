@@ -2,6 +2,17 @@
 
 All notable changes to the "aimd-studio" extension will be documented in this file.
 
+## [0.3.1] - 2025-12-25
+
+### Added
+- **Automated Build Pipeline**: PyInstaller-based compilation of Python backend to standalone binaries.
+- **Multi-Platform CI**: GitHub Actions workflow for Windows, macOS (Intel & ARM), and Linux builds.
+- **Automated Publishing**: GitHub Actions workflow for automatic publishing to VS Code Marketplace and Open VSX on release.
+- **Platform Detection**: Extension automatically loads compiled binary or falls back to Python source.
+
+### Changed
+- **Runner Updates**: Migrated from deprecated `macos-13` to `macos-15` runners.
+
 ## [0.3.0] - 2025-12-25
 
 ### Added

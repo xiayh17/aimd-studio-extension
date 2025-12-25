@@ -35,6 +35,12 @@ This extension contributes the following settings:
 
 ## Release Notes
 
+### 0.3.1
+
+CI/CD automation and build pipeline:
+- **Multi-Platform Binaries**: Automated PyInstaller builds for Win/Mac/Linux.
+- **Auto Publishing**: GitHub Actions for automatic marketplace releases.
+
 ### 0.3.0
 
 Python backend integration:
